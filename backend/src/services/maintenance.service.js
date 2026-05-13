@@ -1,5 +1,9 @@
 import { MaintenanceRequest } from '../models/maintenanceRequest.model.js';
 import { Tenant } from '../models/tenant.model.js';
+import { Room } from '../models/room.model.js';
+import { Contract } from '../models/contract.model.js';
+
+const MAINTENANCE_STATUSES = new Set(['Pending Review', 'Accepted', 'Rejected', 'Resolved', 'Cancelled']);
 
 function maintenancePayload(data) {
   return {
@@ -14,6 +18,25 @@ function maintenancePayload(data) {
       : Number(data.maintenanceCost),
     resolvedAt: data.resolvedAt ? new Date(data.resolvedAt) : null,
   };
+}
+
+async function assertTenantRoomAssignment(tenantId, roomId) {
+  const tenant = await Tenant.findById(tenantId).lean();
+  if (!tenant) {
+    throw new Error('Tenant not found');
+  }
+  const room = await Room.findById(roomId).lean();
+  if (!room) {
+    throw new Error('Room not found');
+  }
+  const activeContract = await Contract.findOne({
+    tenantId,
+    roomId,
+    status: 'Active',
+  }).lean();
+  if (!activeContract) {
+    throw new Error('Maintenance request room must belong to an active tenant contract');
+  }
 }
 
 export async function getMaintenanceRequests() {
@@ -41,6 +64,7 @@ export async function createMaintenanceRequest(data) {
   if (!payload.tenantId || !payload.roomId || !payload.title || !payload.description) {
     throw new Error('Missing required maintenance fields');
   }
+  await assertTenantRoomAssignment(payload.tenantId, payload.roomId);
   payload.status = 'Pending Review';
   return MaintenanceRequest.create(payload);
 }
@@ -68,6 +92,12 @@ export async function updateMaintenanceRequestById(id, data) {
     status: data.status || current.status,
   });
 
+  if (!MAINTENANCE_STATUSES.has(payload.status)) {
+    throw new Error('Invalid maintenance status');
+  }
+  if (!Number.isFinite(Number(payload.maintenanceCost || 0)) || Number(payload.maintenanceCost || 0) < 0) {
+    throw new Error('Maintenance cost must be a positive number');
+  }
   if (payload.status === 'Rejected' && !String(payload.responseNote || '').trim()) {
     throw new Error('Rejected maintenance requests require a response note');
   }

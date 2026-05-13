@@ -4,6 +4,7 @@ import { Tenant } from '../models/tenant.model.js';
 import { Room } from '../models/room.model.js';
 import { Contract } from '../models/contract.model.js';
 import { Invoice } from '../models/invoice.model.js';
+import { Payment } from '../models/payment.model.js';
 import { MaintenanceRequest } from '../models/maintenanceRequest.model.js';
 
 async function clearDemoData() {
@@ -13,6 +14,7 @@ async function clearDemoData() {
     Room.deleteMany({}),
     Contract.deleteMany({}),
     Invoice.deleteMany({}),
+    Payment.deleteMany({}),
     MaintenanceRequest.deleteMany({}),
   ]);
 }

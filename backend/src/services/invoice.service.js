@@ -2,6 +2,9 @@ import { Invoice } from '../models/invoice.model.js';
 import { Contract } from '../models/contract.model.js';
 import { Tenant } from '../models/tenant.model.js';
 
+const INVOICE_STATUSES = new Set(['Unpaid', 'Overdue', 'Cancelled', 'Paid']);
+const WATER_BILLING_METHODS = new Set(['BY_USAGE', 'BY_PERSON']);
+
 function invoicePayload(data) {
   const electricityUsage = Number(data.electricityUsage || 0);
   const electricityUnitPrice = Number(data.electricityUnitPrice || 0);
@@ -49,6 +52,41 @@ function assertRequired(payload) {
   if (!payload.tenantId || !payload.roomId || !payload.contractId || !payload.billingMonth || !payload.dueDate) {
     throw new Error('Missing required invoice fields');
   }
+  if (!/^\d{4}-\d{2}$/.test(payload.billingMonth)) {
+    throw new Error('Billing month must use YYYY-MM format');
+  }
+  if (Number.isNaN(payload.dueDate.getTime())) {
+    throw new Error('Invalid invoice due date');
+  }
+  if (!INVOICE_STATUSES.has(payload.status)) {
+    throw new Error('Invalid invoice status');
+  }
+  if (!WATER_BILLING_METHODS.has(payload.waterBillingMethod)) {
+    throw new Error('Invalid water billing method');
+  }
+  const numericFields = [
+    'roomRent',
+    'electricityUsage',
+    'electricityUnitPrice',
+    'waterUsage',
+    'waterUnitPrice',
+    'numberOfTenants',
+    'waterPricePerPerson',
+    'serviceFee',
+    'parkingFee',
+    'discount',
+  ];
+  for (const field of numericFields) {
+    if (!Number.isFinite(payload[field]) || payload[field] < 0) {
+      throw new Error('Invoice numeric fields must be non-negative numbers');
+    }
+  }
+  if (payload.numberOfTenants < 1) {
+    throw new Error('Invoice number of tenants must be at least 1');
+  }
+  if (payload.totalAmount < 0) {
+    throw new Error('Invoice total amount cannot be negative');
+  }
 }
 
 export async function getInvoices() {
@@ -76,6 +114,9 @@ export async function getInvoicesForTenant(accountId) {
 export async function createInvoice(data) {
   const payload = invoicePayload(data);
   assertRequired(payload);
+  if (payload.status === 'Paid') {
+    throw new Error('Use payment confirmation to mark an invoice as Paid');
+  }
   const contract = await Contract.findById(payload.contractId).lean();
   if (!contract) {
     throw new Error('Contract not found');

@@ -2,6 +2,8 @@ import { Contract } from '../models/contract.model.js';
 import { Room } from '../models/room.model.js';
 import { Tenant } from '../models/tenant.model.js';
 
+const CONTRACT_STATUSES = new Set(['Active', 'Expired', 'Terminated']);
+
 function contractPayload(data) {
   return {
     tenantId: data.tenantId,
@@ -16,11 +18,40 @@ function contractPayload(data) {
   };
 }
 
+function assertValidContractPayload(payload) {
+  if (!payload.tenantId || !payload.roomId || !payload.startDate || !payload.endDate) {
+    throw new Error('Missing required contract fields');
+  }
+  if (Number.isNaN(payload.startDate.getTime()) || Number.isNaN(payload.endDate.getTime())) {
+    throw new Error('Invalid contract date');
+  }
+  if (payload.startDate >= payload.endDate) {
+    throw new Error('Contract start date must be before end date');
+  }
+  if (!Number.isFinite(payload.depositAmount) || payload.depositAmount < 0) {
+    throw new Error('Contract deposit amount must be a positive number');
+  }
+  if (!Number.isFinite(payload.monthlyRent) || payload.monthlyRent < 0) {
+    throw new Error('Contract monthly rent must be a positive number');
+  }
+  if (!CONTRACT_STATUSES.has(payload.status)) {
+    throw new Error('Invalid contract status');
+  }
+}
+
 async function syncRoomStatus(roomId) {
   const active = await Contract.findOne({ roomId, status: 'Active' }).lean();
-  await Room.findByIdAndUpdate(roomId, {
-    status: active ? 'Occupied' : 'Available',
-  });
+  const room = await Room.findById(roomId).lean();
+  if (!room) {
+    return;
+  }
+  if (active) {
+    await Room.findByIdAndUpdate(roomId, { status: 'Occupied' });
+    return;
+  }
+  if (room.status === 'Occupied') {
+    await Room.findByIdAndUpdate(roomId, { status: 'Available' });
+  }
 }
 
 export async function getContracts() {
@@ -45,9 +76,7 @@ export async function getContractsForTenant(accountId) {
 
 export async function createContract(data) {
   const payload = contractPayload(data);
-  if (!payload.tenantId || !payload.roomId || !payload.startDate || !payload.endDate) {
-    throw new Error('Missing required contract fields');
-  }
+  assertValidContractPayload(payload);
 
   const room = await Room.findById(payload.roomId).lean();
   if (!room) {
@@ -57,12 +86,12 @@ export async function createContract(data) {
   if (!tenant) {
     throw new Error('Tenant not found');
   }
-  if (payload.status === 'Active' && room.status !== 'Available') {
-    throw new Error('Room is not available');
-  }
   const activeContract = await Contract.findOne({ roomId: payload.roomId, status: 'Active' }).lean();
   if (activeContract && payload.status === 'Active') {
     throw new Error('Only one active contract is allowed for a room');
+  }
+  if (payload.status === 'Active' && room.status !== 'Available') {
+    throw new Error('Room is not available');
   }
   if (room.status === 'Maintenance' && payload.status === 'Active') {
     throw new Error('Cannot activate contract while room is under maintenance');
@@ -85,16 +114,32 @@ export async function updateContractById(id, data) {
   const nextStatus = payload.status || current.status;
   const roomId = payload.roomId || current.roomId;
   const tenantId = payload.tenantId || current.tenantId;
+  const nextPayload = {
+    ...payload,
+    status: nextStatus,
+    roomId,
+    tenantId,
+    startDate: payload.startDate || new Date(current.startDate),
+    endDate: payload.endDate || new Date(current.endDate),
+  };
+  assertValidContractPayload(nextPayload);
+
   const room = await Room.findById(roomId).lean();
   if (!room) {
     throw new Error('Room not found');
   }
+  const tenant = await Tenant.findById(tenantId).lean();
+  if (!tenant) {
+    throw new Error('Tenant not found');
+  }
 
-  if (roomId !== current.roomId) {
-    const activeContract = await Contract.findOne({ roomId, status: 'Active' }).lean();
-    if (activeContract && nextStatus === 'Active') {
-      throw new Error('Only one active contract is allowed for a room');
-    }
+  const activeContract = await Contract.findOne({
+    roomId,
+    status: 'Active',
+    _id: { $ne: id },
+  }).lean();
+  if (activeContract && nextStatus === 'Active') {
+    throw new Error('Only one active contract is allowed for a room');
   }
   if (nextStatus === 'Active' && room.status !== 'Available' && String(roomId) !== String(current.roomId)) {
     throw new Error('Room is not available');

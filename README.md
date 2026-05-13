@@ -122,6 +122,25 @@ File này không commit lên GitHub. Backend sẽ tự seed dữ liệu mẫu kh
 npm run seed
 ```
 
+## Cấu hình production
+
+Khi chạy ngoài môi trường demo, cấu hình tối thiểu cần kiểm tra:
+
+- Đặt `NODE_ENV=production`.
+- Đặt `JWT_SECRET` bằng chuỗi bí mật mạnh, không dùng giá trị mẫu.
+- Đặt `CLIENT_ORIGIN` đúng origin frontend được phép gọi API, ví dụ `https://example.com`.
+- Chạy sau proxy HTTPS hoặc hosting có TLS.
+- Sao lưu `backend/data/db.json` nếu vẫn dùng local file store.
+
+Backend đã có các lớp bảo vệ cơ bản:
+
+- JWT bắt buộc có secret riêng trong production.
+- CORS chỉ cho phép origin trong `CLIENT_ORIGIN` khi được cấu hình.
+- Giới hạn JSON request body.
+- Security headers cơ bản.
+- Service-layer validation cho room, contract, invoice, payment, maintenance.
+- Test tự động cho các business rule quan trọng.
+
 ## Scripts
 
 Chạy backend dev server:
@@ -142,6 +161,12 @@ Build frontend:
 npm run build
 ```
 
+Chạy test backend:
+
+```bash
+npm test
+```
+
 Reset seed data:
 
 ```bash
@@ -151,6 +176,8 @@ npm run seed
 ## API
 
 Tài liệu endpoint chính nằm tại [docs/API.md](docs/API.md).
+
+Báo cáo kiến trúc, use cases, workflow và diagrams nằm tại [docs/SYSTEM_REPORT.md](docs/SYSTEM_REPORT.md).
 
 Health check:
 
@@ -182,6 +209,7 @@ Quy trình ngắn:
 
 ```bash
 npm install
+npm test
 npm run build
 ```
 

@@ -1,6 +1,10 @@
 import bcrypt from 'bcryptjs';
 import { Account } from '../models/account.model.js';
 import { Tenant } from '../models/tenant.model.js';
+import { Contract } from '../models/contract.model.js';
+import { Invoice } from '../models/invoice.model.js';
+import { Payment } from '../models/payment.model.js';
+import { MaintenanceRequest } from '../models/maintenanceRequest.model.js';
 
 function normalizeTenantPayload(data) {
   return {
@@ -108,6 +112,15 @@ export async function deleteTenantById(id) {
   const tenant = await Tenant.findById(id).lean();
   if (!tenant) {
     throw new Error('Tenant not found');
+  }
+  const hasRelatedRecords = await Promise.all([
+    Contract.exists({ tenantId: id }),
+    Invoice.exists({ tenantId: id }),
+    Payment.exists({ tenantId: id }),
+    MaintenanceRequest.exists({ tenantId: id }),
+  ]);
+  if (hasRelatedRecords.some(Boolean)) {
+    throw new Error('Cannot delete tenant with related rental records');
   }
 
   await Account.findByIdAndDelete(tenant.accountId);
