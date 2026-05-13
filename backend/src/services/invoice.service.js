@@ -1,0 +1,125 @@
+import { Invoice } from '../models/invoice.model.js';
+import { Contract } from '../models/contract.model.js';
+import { Tenant } from '../models/tenant.model.js';
+
+function invoicePayload(data) {
+  const electricityUsage = Number(data.electricityUsage || 0);
+  const electricityUnitPrice = Number(data.electricityUnitPrice || 0);
+  const waterUsage = Number(data.waterUsage || 0);
+  const waterUnitPrice = Number(data.waterUnitPrice || 0);
+  const numberOfTenants = Number(data.numberOfTenants || 1);
+  const waterPricePerPerson = Number(data.waterPricePerPerson || 0);
+  const roomRent = Number(data.roomRent || 0);
+  const serviceFee = Number(data.serviceFee || 0);
+  const parkingFee = Number(data.parkingFee || 0);
+  const discount = Number(data.discount || 0);
+  const waterBillingMethod = data.waterBillingMethod || 'BY_USAGE';
+
+  const electricityFee = electricityUsage * electricityUnitPrice;
+  const waterFee = waterBillingMethod === 'BY_PERSON'
+    ? numberOfTenants * waterPricePerPerson
+    : waterUsage * waterUnitPrice;
+  const totalAmount = roomRent + electricityFee + waterFee + serviceFee + parkingFee - discount;
+
+  return {
+    tenantId: data.tenantId,
+    roomId: data.roomId,
+    contractId: data.contractId,
+    billingMonth: String(data.billingMonth || '').trim(),
+    roomRent,
+    electricityUsage,
+    electricityUnitPrice,
+    electricityFee,
+    waterBillingMethod,
+    waterUsage,
+    waterUnitPrice,
+    numberOfTenants,
+    waterPricePerPerson,
+    waterFee,
+    serviceFee,
+    parkingFee,
+    discount,
+    totalAmount,
+    dueDate: data.dueDate ? new Date(data.dueDate) : null,
+    status: data.status || 'Unpaid',
+  };
+}
+
+function assertRequired(payload) {
+  if (!payload.tenantId || !payload.roomId || !payload.contractId || !payload.billingMonth || !payload.dueDate) {
+    throw new Error('Missing required invoice fields');
+  }
+}
+
+export async function getInvoices() {
+  return Invoice.find()
+    .populate('tenantId', 'fullName phone')
+    .populate('roomId', 'roomNumber roomType')
+    .populate('contractId', 'status startDate endDate')
+    .sort({ createdAt: -1 })
+    .lean();
+}
+
+export async function getInvoicesForTenant(accountId) {
+  const tenant = await Tenant.findOne({ accountId }).lean();
+  if (!tenant) {
+    return [];
+  }
+  return Invoice.find({ tenantId: tenant._id })
+    .populate('tenantId', 'fullName phone')
+    .populate('roomId', 'roomNumber roomType')
+    .populate('contractId', 'status startDate endDate')
+    .sort({ createdAt: -1 })
+    .lean();
+}
+
+export async function createInvoice(data) {
+  const payload = invoicePayload(data);
+  assertRequired(payload);
+  const contract = await Contract.findById(payload.contractId).lean();
+  if (!contract) {
+    throw new Error('Contract not found');
+  }
+  if (contract.status !== 'Active') {
+    throw new Error('Invoice can only be created for an active contract');
+  }
+  if (String(contract.tenantId) !== String(payload.tenantId) || String(contract.roomId) !== String(payload.roomId)) {
+    throw new Error('Invoice tenant or room does not match the selected contract');
+  }
+  const duplicate = await Invoice.findOne({
+    tenantId: payload.tenantId,
+    billingMonth: payload.billingMonth,
+  }).lean();
+  if (duplicate) {
+    throw new Error('Invoice for this tenant and billing month already exists');
+  }
+  return Invoice.create(payload);
+}
+
+export async function updateInvoiceById(id, data) {
+  const current = await Invoice.findById(id).lean();
+  if (!current) {
+    throw new Error('Invoice not found');
+  }
+  const payload = invoicePayload({
+    ...current,
+    ...data,
+    status: data.status || current.status,
+  });
+  assertRequired({ ...payload, dueDate: payload.dueDate || current.dueDate });
+  if (payload.status === 'Paid' && current.status !== 'Paid') {
+    throw new Error('Use payment confirmation to mark an invoice as Paid');
+  }
+  return Invoice.findByIdAndUpdate(id, {
+    ...payload,
+    dueDate: payload.dueDate || current.dueDate,
+  });
+}
+
+export async function updateInvoiceStatusById(id, status) {
+  const current = await Invoice.findById(id).lean();
+  if (!current) {
+    throw new Error('Invoice not found');
+  }
+  return Invoice.findByIdAndUpdate(id, { status });
+}
