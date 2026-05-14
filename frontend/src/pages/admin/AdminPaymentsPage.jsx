@@ -211,6 +211,10 @@ export function AdminPaymentsPage() {
   function openImagePreview({ title, src, note, meta }) {
     if (!src) return;
     closeImagePreview();
+    setImagePreview(createImagePreview({ title, src, note, meta }));
+  }
+
+  function createImagePreview({ title, src, note, meta }) {
     let displaySrc = src;
     let objectUrl = '';
     if (src.startsWith('data:image/')) {
@@ -221,7 +225,16 @@ export function AdminPaymentsPage() {
         displaySrc = src;
       }
     }
-    setImagePreview({ title, src, displaySrc, objectUrl, note, meta });
+    return { title, src, displaySrc, objectUrl, note, meta };
+  }
+
+  function printReceiptPdf({ title, src, note, meta }) {
+    if (!src) return;
+    const preview = createImagePreview({ title, src, note, meta });
+    exportReceiptPdf(preview);
+    if (preview.objectUrl) {
+      window.setTimeout(() => window.URL.revokeObjectURL(preview.objectUrl), 60000);
+    }
   }
 
   function exportReceiptPdf(preview) {
@@ -396,7 +409,6 @@ export function AdminPaymentsPage() {
                     <th>Date</th>
                     <th>Method</th>
                     <th>Amount</th>
-                    <th>Proof</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -407,30 +419,8 @@ export function AdminPaymentsPage() {
                       <td>{formatDate(payment.paymentDate)}</td>
                       <td>{payment.method}</td>
                       <td>{formatCurrency(payment.amount)}</td>
-                      <td>
-                        {payment.invoiceId?.paymentProofImageUrl ? (
-                          <button
-                            type="button"
-                            className="text-button dark"
-                            onClick={() => openImagePreview({
-                              title: `Receipt ${payment.invoiceId.billingMonth || ''}`.trim(),
-                              src: payment.invoiceId.paymentProofImageUrl,
-                              note: payment.invoiceId.paymentProofNote,
-                              meta: {
-                                invoice: payment.invoiceId.billingMonth || '-',
-                                tenant: payment.tenantId?.fullName || '-',
-                                status: payment.invoiceId.status || '-',
-                                amount: formatCurrency(payment.amount),
-                                uploaded: formatDate(payment.invoiceId.paymentProofUploadedAt),
-                              },
-                            })}
-                          >
-                            PDF
-                          </button>
-                        ) : '-'}
-                      </td>
                     </tr>
-                  )) : <tr><td colSpan="6" className="muted">No matching payments.</td></tr>}
+                  )) : <tr><td colSpan="5" className="muted">No matching payments.</td></tr>}
                 </tbody>
               </table>
             ) : (
@@ -458,7 +448,7 @@ export function AdminPaymentsPage() {
                         <button
                           type="button"
                           className="text-button dark"
-                          onClick={() => openImagePreview({
+                          onClick={() => printReceiptPdf({
                             title: `Receipt ${invoice.billingMonth}`,
                             src: invoice.paymentProofImageUrl,
                             note: invoice.paymentProofNote,
@@ -471,7 +461,7 @@ export function AdminPaymentsPage() {
                             },
                           })}
                         >
-                          PDF
+                          Export PDF Receipt
                         </button>
                       </td>
                       <td className="row-action-cell">
