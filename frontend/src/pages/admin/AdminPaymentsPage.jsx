@@ -48,7 +48,16 @@ function dataUrlToObjectUrl(dataUrl) {
   return window.URL.createObjectURL(new Blob(chunks, { type: mime }));
 }
 
-function ImagePreviewModal({ preview, onClose }) {
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function ImagePreviewModal({ preview, onClose, onExportPdf }) {
   const [loadError, setLoadError] = React.useState('');
 
   React.useEffect(() => {
@@ -66,9 +75,14 @@ function ImagePreviewModal({ preview, onClose }) {
             alt={preview.title || 'Preview'}
             onError={() => setLoadError('Cannot display this receipt image. Use Open image below.')}
           />
-          <a className="button secondary image-open-button" href={preview.displaySrc} target="_blank" rel="noreferrer">
-            Open image
-          </a>
+          <div className="button-row">
+            <button type="button" className="button" onClick={() => onExportPdf(preview)}>
+              Export PDF
+            </button>
+            <a className="button secondary image-open-button" href={preview.displaySrc} target="_blank" rel="noreferrer">
+              Open image
+            </a>
+          </div>
           {preview.note ? <p className="muted">{preview.note}</p> : null}
         </div>
       ) : null}
@@ -194,7 +208,7 @@ export function AdminPaymentsPage() {
     setImagePreview(null);
   }
 
-  function openImagePreview({ title, src, note }) {
+  function openImagePreview({ title, src, note, meta }) {
     if (!src) return;
     closeImagePreview();
     let displaySrc = src;
@@ -207,7 +221,106 @@ export function AdminPaymentsPage() {
         displaySrc = src;
       }
     }
-    setImagePreview({ title, src, displaySrc, objectUrl, note });
+    setImagePreview({ title, src, displaySrc, objectUrl, note, meta });
+  }
+
+  function exportReceiptPdf(preview) {
+    if (!preview?.displaySrc) return;
+    const printable = window.open('', '_blank', 'noopener,noreferrer');
+    if (!printable) {
+      setError('Popup was blocked. Allow popups to export receipt PDF.');
+      return;
+    }
+    const meta = preview.meta || {};
+    printable.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>${escapeHtml(preview.title || 'Receipt')}</title>
+          <style>
+            @page { size: A4; margin: 18mm; }
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              color: #17202d;
+              font-family: Arial, sans-serif;
+              font-size: 13px;
+            }
+            header {
+              display: flex;
+              justify-content: space-between;
+              gap: 24px;
+              padding-bottom: 16px;
+              border-bottom: 1px solid #d6dee8;
+            }
+            h1 {
+              margin: 0 0 6px;
+              font-size: 22px;
+            }
+            .muted { color: #687382; }
+            .meta {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 10px 18px;
+              margin: 18px 0;
+            }
+            .meta div {
+              padding: 10px 12px;
+              border: 1px solid #d6dee8;
+              border-radius: 8px;
+            }
+            .meta span {
+              display: block;
+              margin-bottom: 4px;
+              color: #687382;
+              font-size: 11px;
+              font-weight: 700;
+              text-transform: uppercase;
+            }
+            .receipt-image {
+              width: 100%;
+              max-height: 620px;
+              object-fit: contain;
+              border: 1px solid #d6dee8;
+              border-radius: 8px;
+            }
+            .note {
+              margin-top: 14px;
+              padding: 12px;
+              border: 1px solid #d6dee8;
+              border-radius: 8px;
+              white-space: pre-wrap;
+            }
+          </style>
+        </head>
+        <body>
+          <header>
+            <div>
+              <h1>Payment Receipt</h1>
+              <div class="muted">Rental Property Management</div>
+            </div>
+            <div class="muted">${escapeHtml(new Date().toLocaleString())}</div>
+          </header>
+          <section class="meta">
+            <div><span>Invoice</span>${escapeHtml(meta.invoice || '-')}</div>
+            <div><span>Tenant</span>${escapeHtml(meta.tenant || '-')}</div>
+            <div><span>Status</span>${escapeHtml(meta.status || '-')}</div>
+            <div><span>Amount</span>${escapeHtml(meta.amount || '-')}</div>
+            <div><span>Uploaded</span>${escapeHtml(meta.uploaded || '-')}</div>
+            <div><span>Source</span>${escapeHtml(preview.title || 'Receipt')}</div>
+          </section>
+          <img class="receipt-image" src="${preview.displaySrc}" alt="Payment receipt" />
+          ${preview.note ? `<section class="note">${escapeHtml(preview.note)}</section>` : ''}
+          <script>
+            window.addEventListener('load', () => {
+              window.focus();
+              setTimeout(() => window.print(), 150);
+            });
+          </script>
+        </body>
+      </html>
+    `);
+    printable.document.close();
   }
 
   React.useEffect(() => () => {
@@ -303,9 +416,16 @@ export function AdminPaymentsPage() {
                               title: `Receipt ${payment.invoiceId.billingMonth || ''}`.trim(),
                               src: payment.invoiceId.paymentProofImageUrl,
                               note: payment.invoiceId.paymentProofNote,
+                              meta: {
+                                invoice: payment.invoiceId.billingMonth || '-',
+                                tenant: payment.tenantId?.fullName || '-',
+                                status: payment.invoiceId.status || '-',
+                                amount: formatCurrency(payment.amount),
+                                uploaded: formatDate(payment.invoiceId.paymentProofUploadedAt),
+                              },
                             })}
                           >
-                            View
+                            PDF
                           </button>
                         ) : '-'}
                       </td>
@@ -342,9 +462,16 @@ export function AdminPaymentsPage() {
                             title: `Receipt ${invoice.billingMonth}`,
                             src: invoice.paymentProofImageUrl,
                             note: invoice.paymentProofNote,
+                            meta: {
+                              invoice: invoice.billingMonth,
+                              tenant: invoice.tenantId?.fullName || '-',
+                              status: invoice.status || '-',
+                              amount: formatCurrency(invoice.totalAmount),
+                              uploaded: formatDate(invoice.paymentProofUploadedAt),
+                            },
                           })}
                         >
-                          View
+                          PDF
                         </button>
                       </td>
                       <td className="row-action-cell">
@@ -404,7 +531,7 @@ export function AdminPaymentsPage() {
           </div>
         </form>
       </Modal>
-      <ImagePreviewModal preview={imagePreview} onClose={closeImagePreview} />
+      <ImagePreviewModal preview={imagePreview} onClose={closeImagePreview} onExportPdf={exportReceiptPdf} />
     </section>
   );
 }
