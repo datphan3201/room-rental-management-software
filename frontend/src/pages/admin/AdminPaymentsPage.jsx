@@ -49,49 +49,26 @@ function dataUrlToObjectUrl(dataUrl) {
 }
 
 function ImagePreviewModal({ preview, onClose }) {
-  const [displaySrc, setDisplaySrc] = React.useState('');
   const [loadError, setLoadError] = React.useState('');
 
   React.useEffect(() => {
     setLoadError('');
-    if (!preview?.src) {
-      setDisplaySrc('');
-      return undefined;
-    }
-
-    if (!preview.src.startsWith('data:image/')) {
-      setDisplaySrc(preview.src);
-      return undefined;
-    }
-
-    let objectUrl = '';
-    try {
-      objectUrl = dataUrlToObjectUrl(preview.src);
-      setDisplaySrc(objectUrl);
-    } catch {
-      setDisplaySrc(preview.src);
-    }
-
-    return () => {
-      if (objectUrl) {
-        window.URL.revokeObjectURL(objectUrl);
-      }
-    };
   }, [preview]);
 
   return (
     <Modal open={Boolean(preview)} title={preview?.title || 'Image'} onClose={onClose}>
-      {preview?.src ? (
+      {preview?.displaySrc ? (
         <div className="image-preview-dialog">
           {loadError ? <div className="error-box">{loadError}</div> : null}
-          {displaySrc ? (
-            <img
-              className="receipt-preview large"
-              src={displaySrc}
-              alt={preview.title || 'Preview'}
-              onError={() => setLoadError('Cannot display this receipt image. Try uploading a JPG or PNG image.')}
-            />
-          ) : null}
+          <img
+            className="receipt-preview large"
+            src={preview.displaySrc}
+            alt={preview.title || 'Preview'}
+            onError={() => setLoadError('Cannot display this receipt image. Use Open image below.')}
+          />
+          <a className="button secondary image-open-button" href={preview.displaySrc} target="_blank" rel="noreferrer">
+            Open image
+          </a>
           {preview.note ? <p className="muted">{preview.note}</p> : null}
         </div>
       ) : null}
@@ -210,6 +187,35 @@ export function AdminPaymentsPage() {
     setFormOpen(true);
   }
 
+  function closeImagePreview() {
+    if (imagePreview?.objectUrl) {
+      window.URL.revokeObjectURL(imagePreview.objectUrl);
+    }
+    setImagePreview(null);
+  }
+
+  function openImagePreview({ title, src, note }) {
+    if (!src) return;
+    closeImagePreview();
+    let displaySrc = src;
+    let objectUrl = '';
+    if (src.startsWith('data:image/')) {
+      try {
+        objectUrl = dataUrlToObjectUrl(src);
+        displaySrc = objectUrl;
+      } catch {
+        displaySrc = src;
+      }
+    }
+    setImagePreview({ title, src, displaySrc, objectUrl, note });
+  }
+
+  React.useEffect(() => () => {
+    if (imagePreview?.objectUrl) {
+      window.URL.revokeObjectURL(imagePreview.objectUrl);
+    }
+  }, [imagePreview]);
+
   return (
     <section className="panel wide">
       <div className="panel-header">
@@ -244,7 +250,7 @@ export function AdminPaymentsPage() {
             <button
               type="button"
               className="button secondary"
-              onClick={() => setImagePreview({ title: 'Payment QR', src: settings.qrImageUrl })}
+              onClick={() => openImagePreview({ title: 'Payment QR', src: settings.qrImageUrl })}
             >
               View QR
             </button>
@@ -293,7 +299,7 @@ export function AdminPaymentsPage() {
                           <button
                             type="button"
                             className="text-button dark"
-                            onClick={() => setImagePreview({
+                            onClick={() => openImagePreview({
                               title: `Receipt ${payment.invoiceId.billingMonth || ''}`.trim(),
                               src: payment.invoiceId.paymentProofImageUrl,
                               note: payment.invoiceId.paymentProofNote,
@@ -332,7 +338,7 @@ export function AdminPaymentsPage() {
                         <button
                           type="button"
                           className="text-button dark"
-                          onClick={() => setImagePreview({
+                          onClick={() => openImagePreview({
                             title: `Receipt ${invoice.billingMonth}`,
                             src: invoice.paymentProofImageUrl,
                             note: invoice.paymentProofNote,
@@ -398,7 +404,7 @@ export function AdminPaymentsPage() {
           </div>
         </form>
       </Modal>
-      <ImagePreviewModal preview={imagePreview} onClose={() => setImagePreview(null)} />
+      <ImagePreviewModal preview={imagePreview} onClose={closeImagePreview} />
     </section>
   );
 }

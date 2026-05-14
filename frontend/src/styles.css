@@ -411,6 +411,10 @@ textarea {
   gap: 12px;
 }
 
+.image-open-button {
+  text-decoration: none;
+}
+
 .row-action-cell {
   width: 46px;
   text-align: right;
