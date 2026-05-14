@@ -52,7 +52,7 @@ Explicitly excluded from the current scope:
 | Backend | Node.js, Express.js |
 | Authentication | JWT, bcryptjs |
 | Authorization | Role-based access control |
-| Data layer | Local file-backed repository store |
+| Data layer | MongoDB with Mongoose models |
 | Testing | Node built-in test runner |
 | Build tooling | npm workspaces, Vite |
 
@@ -291,7 +291,7 @@ The system uses client-server architecture and layered architecture.
 
 - The React frontend handles routes, screens, forms, local authentication state, and API calls.
 - The Express backend handles authentication, authorization, controllers, business rules, and data access.
-- The current data layer is a repository-like local JSON store.
+- The data layer uses Mongoose models backed by MongoDB.
 
 ```mermaid
 flowchart TB
@@ -301,8 +301,8 @@ flowchart TB
   Auth[Auth Middleware]
   Controllers[Controllers]
   Services[Services / Business Rules]
-  Models[Repository Models]
-  Store[Local JSON Store]
+  Models[Mongoose Models]
+  Store[(MongoDB)]
 
   User --> Frontend
   Frontend -->|HTTP /api + JWT| Api
@@ -365,16 +365,16 @@ flowchart TB
   end
 
   subgraph Data["Data Layer"]
-    Repositories[Repository-like Models]
-    JsonStore[backend/data/db.json]
+    Models[Mongoose Models]
+    MongoDB[(MongoDB)]
   end
 
   Presentation --> API
   Routes --> Middleware
   Middleware --> Controllers
   Controllers --> Domain
-  Domain --> Repositories
-  Repositories --> JsonStore
+  Domain --> Models
+  Models --> MongoDB
 ```
 
 LLM-readable diagram specification:
@@ -401,15 +401,15 @@ Layers:
    - Maintenance Service
    - Dashboard Service
 4. Data Layer:
-   - Repository-like Models
-   - backend/data/db.json
+   - Mongoose Models
+   - MongoDB
 Flow:
 - Presentation Layer calls API Layer.
 - Express Routes call Middleware.
 - Middleware calls Controllers.
 - Controllers call Services.
-- Services call Repositories.
-- Repositories persist data in backend/data/db.json.
+- Services call Mongoose models.
+- Mongoose models persist data in MongoDB.
 ```
 
 ### 5.3 Deployment Diagram
@@ -423,12 +423,12 @@ flowchart LR
   subgraph DevMachine["Local / Demo Machine"]
     Vite[Vite Dev Server :5173]
     Express[Express Backend :4000]
-    DataFile[Local Data File db.json]
+    MongoDB[(MongoDB :27017)]
   end
 
   Browser -->|http://127.0.0.1:5173| Vite
   Vite -->|Proxy /api| Express
-  Express --> DataFile
+  Express --> MongoDB
 ```
 
 LLM-readable diagram specification:
@@ -440,11 +440,11 @@ Nodes:
 - Browser
 - Vite Dev Server on port 5173
 - Express Backend on port 4000
-- Local Data File db.json
+- MongoDB on port 27017 or a configured remote MongoDB URI
 Edges:
 - Browser opens http://127.0.0.1:5173 served by Vite.
 - Vite proxies /api requests to Express Backend.
-- Express Backend reads and writes Local Data File db.json.
+- Express Backend reads and writes MongoDB through Mongoose.
 ```
 
 Target production deployment:
@@ -489,7 +489,7 @@ flowchart TB
   Controllers[Controller Modules]
   Services[Service Modules]
   Models[Model Modules]
-  Store[data/store.js]
+  MongoDB[(MongoDB)]
 
   Server --> Config
   Server --> App
@@ -498,7 +498,7 @@ flowchart TB
   Routes --> Controllers
   Controllers --> Services
   Services --> Models
-  Models --> Store
+  Models --> MongoDB
 ```
 
 LLM-readable diagram specification:
@@ -506,14 +506,14 @@ LLM-readable diagram specification:
 ```text
 Diagram type: Backend module dependency map.
 Modules:
-- server.js starts backend and initializes database/store.
+- server.js starts backend and initializes MongoDB.
 - app.js configures Express middleware and mounts route modules.
 - route modules define URL endpoints and role restrictions.
 - auth.middleware.js verifies JWT and checks roles.
 - controller modules translate HTTP requests into service calls.
 - service modules contain business rules and validation.
-- model modules provide repository-like access to collections.
-- data/store.js persists data to local JSON file.
+- model modules define Mongoose schemas and provide collection access.
+- MongoDB persists application data.
 Dependency direction:
 server.js -> config/db.js
 server.js -> app.js
@@ -522,7 +522,7 @@ route modules -> auth.middleware.js
 route modules -> controller modules
 controller modules -> service modules
 service modules -> model modules
-model modules -> data/store.js
+model modules -> MongoDB
 ```
 
 ### 5.5 Frontend Route Map
@@ -1517,7 +1517,7 @@ npm run build
 
 ### 17.1 Current Limitations
 
-- Data layer is currently a local JSON store, not a real production database.
+- The system now uses MongoDB; production still needs a managed database, backup policy, and migration process.
 - Contract image is stored as URL text only; there is no real file upload.
 - Invoice PDF export is not implemented.
 - Advanced pagination, filtering, and searching are not implemented.
@@ -1529,8 +1529,8 @@ npm run build
 
 Recommended improvements:
 
-1. Replace local JSON store with MongoDB or PostgreSQL.
-2. Add migration and backup strategy.
+1. Add migration and backup strategy.
+2. Add database indexes and monitoring for production workloads.
 3. Add pagination and filtering for large lists.
 4. Add audit logs for contract, invoice, payment, and maintenance changes.
 5. Add PDF invoice export.
@@ -1542,5 +1542,4 @@ Recommended improvements:
 
 The current system covers the core room rental management workflow: admin manages operational data, tenant accesses a personal portal, data access is protected by role, and important business rules are enforced in the backend service layer.
 
-The client-server architecture and controller-service-model backend structure make the system understandable and maintainable. The current implementation is suitable for a course project and local demonstration, and it is also structured well enough to migrate to a real production database in the next stage.
-
+The client-server architecture and controller-service-model backend structure make the system understandable and maintainable. The current implementation is suitable for a course project and local demonstration, and it now persists application data in MongoDB through Mongoose models.

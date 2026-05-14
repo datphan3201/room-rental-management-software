@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export function AppShell() {
@@ -25,26 +25,34 @@ export function AppShell() {
         ['Payments', '/tenant/payments'],
         ['Maintenance', '/tenant/maintenance'],
       ];
+  const sectionTitle = isAdmin ? 'Admin Workspace' : 'Tenant Portal';
+  const displayName = user?.username || user?.tenant?.fullName || user?.phone || 'User';
 
   return (
     <div className="app-frame">
-      <header className="topbar">
-        <div>
-          <div className="brand">Room Rental Management</div>
-          <div className="muted small">{location.pathname}</div>
+      <aside className="sidebar">
+        <div className="brand-block">
+          <div className="brand-mark">RM</div>
+          <div>
+            <div className="brand">Room Manager</div>
+            <div className="sidebar-subtitle">{sectionTitle}</div>
+          </div>
         </div>
-        <nav className="nav-links">
+
+        <nav className="nav-links" aria-label="Primary navigation">
           {links.map(([label, to]) => (
-            <Link key={to} to={to}>
+            <NavLink key={to} to={to} end={to === '/admin' || to === '/tenant'}>
               {label}
-            </Link>
+            </NavLink>
           ))}
         </nav>
-        <div className="session-chip">
-          {user?.role} {user?.username || user?.tenant?.fullName || user?.phone || ''}
+
+        <div className="session-card">
+          <div className="session-role">{user?.role}</div>
+          <div className="session-name">{displayName}</div>
           <button
             type="button"
-            className="text-button"
+            className="text-button logout-button"
             onClick={() => {
               setAuth(null);
               navigate('/login');
@@ -53,10 +61,24 @@ export function AppShell() {
             Logout
           </button>
         </div>
-      </header>
-      <main className="content">
-        <Outlet />
-      </main>
+      </aside>
+
+      <div className="workspace">
+        <header className="workspace-header">
+          <div>
+            <div className="breadcrumb">{location.pathname}</div>
+            <h1>{sectionTitle}</h1>
+          </div>
+          <div className="workspace-user">
+            <span>{user?.role}</span>
+            <strong>{displayName}</strong>
+          </div>
+        </header>
+
+        <main className="content">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

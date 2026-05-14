@@ -46,11 +46,11 @@ async function syncRoomStatus(roomId) {
     return;
   }
   if (active) {
-    await Room.findByIdAndUpdate(roomId, { status: 'Occupied' });
+    await Room.findByIdAndUpdate(roomId, { status: 'Occupied' }, { new: true });
     return;
   }
   if (room.status === 'Occupied') {
-    await Room.findByIdAndUpdate(roomId, { status: 'Available' });
+    await Room.findByIdAndUpdate(roomId, { status: 'Available' }, { new: true });
   }
 }
 
@@ -99,7 +99,7 @@ export async function createContract(data) {
 
   const contract = await Contract.create(payload);
   if (payload.status === 'Active') {
-    await Room.findByIdAndUpdate(payload.roomId, { status: 'Occupied' });
+    await Room.findByIdAndUpdate(payload.roomId, { status: 'Occupied' }, { new: true });
   }
   return contract;
 }
@@ -155,13 +155,13 @@ export async function updateContractById(id, data) {
     status: nextStatus,
     contractImageUrl: payload.contractImageUrl ?? current.contractImageUrl,
     note: payload.note ?? current.note,
-  });
+  }, { new: true });
 
-  if (current.roomId && current.roomId !== roomId) {
+  if (current.roomId && String(current.roomId) !== String(roomId)) {
     await syncRoomStatus(current.roomId);
   }
   if (nextStatus === 'Active') {
-    await Room.findByIdAndUpdate(roomId, { status: 'Occupied' });
+    await Room.findByIdAndUpdate(roomId, { status: 'Occupied' }, { new: true });
   } else if (current.status === 'Active' || nextStatus !== 'Active') {
     await syncRoomStatus(roomId);
   }

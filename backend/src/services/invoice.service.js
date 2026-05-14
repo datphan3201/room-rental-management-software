@@ -154,7 +154,7 @@ export async function updateInvoiceById(id, data) {
   return Invoice.findByIdAndUpdate(id, {
     ...payload,
     dueDate: payload.dueDate || current.dueDate,
-  });
+  }, { new: true });
 }
 
 export async function updateInvoiceStatusById(id, status) {
@@ -162,5 +162,5 @@ export async function updateInvoiceStatusById(id, status) {
   if (!current) {
     throw new Error('Invoice not found');
   }
-  return Invoice.findByIdAndUpdate(id, { status });
+  return Invoice.findByIdAndUpdate(id, { status }, { new: true });
 }

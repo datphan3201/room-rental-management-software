@@ -1,5 +1,6 @@
 import React from 'react';
 import { api } from '../../api/client.js';
+import { StatusBadge } from '../../components/StatusBadge.jsx';
 
 const emptyRoom = {
   roomNumber: '',
@@ -144,9 +145,7 @@ export function AdminRoomsPage() {
                         <td>{formatCurrency(room.monthlyRent)}</td>
                         <td>{room.maxOccupants}</td>
                         <td>
-                          <span className={`pill status-${String(room.status || '').toLowerCase()}`}>
-                            {room.status}
-                          </span>
+                          <StatusBadge value={room.status} />
                         </td>
                         <td className="row-actions">
                           <button type="button" className="text-button dark" onClick={() => startEdit(room)}>

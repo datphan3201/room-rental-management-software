@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { connectDB } from './config/db.js';
+import { connectDB, disconnectDB } from './config/db.js';
 import { seedDemoData } from './services/seed.service.js';
 
 dotenv.config();
@@ -12,10 +12,12 @@ async function seed() {
 
   console.log('Seed complete');
   console.log(result);
+  await disconnectDB();
   process.exit(0);
 }
 
-seed().catch((error) => {
+seed().catch(async (error) => {
   console.error(error);
+  await disconnectDB().catch(() => {});
   process.exit(1);
 });

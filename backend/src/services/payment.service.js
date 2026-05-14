@@ -71,6 +71,6 @@ export async function confirmPayment(data) {
   }
 
   const payment = await Payment.create(payload);
-  await Invoice.findByIdAndUpdate(payload.invoiceId, { status: 'Paid' });
+  await Invoice.findByIdAndUpdate(payload.invoiceId, { status: 'Paid' }, { new: true });
   return payment;
 }

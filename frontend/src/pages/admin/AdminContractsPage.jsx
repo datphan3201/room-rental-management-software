@@ -1,5 +1,6 @@
 import React from 'react';
 import { api } from '../../api/client.js';
+import { StatusBadge } from '../../components/StatusBadge.jsx';
 import { formatDate, formatCurrency } from '../../utils/format.js';
 
 const emptyContract = {
@@ -138,7 +139,7 @@ export function AdminContractsPage() {
                       <td>{contract.tenantId?.fullName || '-'}</td>
                       <td>{contract.roomId?.roomNumber || '-'}</td>
                       <td>{formatDate(contract.startDate)} to {formatDate(contract.endDate)}</td>
-                      <td>{contract.status}</td>
+                      <td><StatusBadge value={contract.status} /></td>
                       <td>{formatCurrency(contract.monthlyRent)}</td>
                       <td className="row-actions">
                         <button type="button" className="text-button dark" onClick={() => startEdit(contract)}>Edit</button>

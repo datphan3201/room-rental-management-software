@@ -55,7 +55,7 @@ export async function updateRoomById(id, data) {
     }
   }
 
-  return Room.findByIdAndUpdate(id, data);
+  return Room.findByIdAndUpdate(id, data, { new: true });
 }
 
 export async function deleteRoomById(id) {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { beforeEach, test } from 'node:test';
+import { after, before, beforeEach, test } from 'node:test';
 
-import { initStore } from '../src/data/store.js';
+import { connectDB, disconnectDB } from '../src/config/db.js';
 import { seedDemoData } from '../src/services/seed.service.js';
 import { loginWithCredentials } from '../src/services/auth.service.js';
 import { createRoom, getRooms } from '../src/services/room.service.js';
@@ -11,9 +11,18 @@ import { getInvoices } from '../src/services/invoice.service.js';
 import { confirmPayment } from '../src/services/payment.service.js';
 import { createMaintenanceRequestForAccount } from '../src/services/maintenance.service.js';
 
+process.env.NODE_ENV = 'test';
+
+before(async () => {
+  await connectDB();
+});
+
 beforeEach(async () => {
-  await initStore();
   await seedDemoData({ reset: true });
+});
+
+after(async () => {
+  await disconnectDB();
 });
 
 test('payment confirmation rejects tenant mismatch', async () => {
@@ -96,6 +105,6 @@ test('terminating active contract releases occupied room', async () => {
   });
 
   const rooms = await getRooms();
-  const releasedRoom = rooms.find((room) => room._id === contract.roomId._id);
+  const releasedRoom = rooms.find((room) => String(room._id) === String(contract.roomId._id));
   assert.equal(releasedRoom.status, 'Available');
 });

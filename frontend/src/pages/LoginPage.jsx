@@ -29,11 +29,9 @@ export function LoginPage() {
   return (
     <div className="login-page">
       <section className="login-card">
-        <p className="eyebrow">Local web application</p>
-        <h1>Room Rental Management Software</h1>
-        <p className="muted">
-          React + Vite frontend connected to a Node.js + Express backend.
-        </p>
+        <p className="eyebrow">Rental operations</p>
+        <h1>Room Manager</h1>
+        <p className="muted">Sign in to manage rooms, contracts, billing, payments, and maintenance.</p>
         {error ? <div className="error-box">{error}</div> : null}
         <form onSubmit={handleSubmit} className="form">
           <label>
@@ -48,7 +46,10 @@ export function LoginPage() {
             Sign in
           </button>
         </form>
-        <p className="muted small">The backend uses JWT authentication and a local repository-backed data store in this build.</p>
+        <div className="login-demo">
+          <span>Admin: admin / admin123</span>
+          <span>Tenant: 0900000001 / tenant123</span>
+        </div>
       </section>
     </div>
   );

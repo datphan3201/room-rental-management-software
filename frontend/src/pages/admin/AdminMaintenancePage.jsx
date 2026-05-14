@@ -1,5 +1,6 @@
 import React from 'react';
 import { api } from '../../api/client.js';
+import { StatusBadge } from '../../components/StatusBadge.jsx';
 import { formatDate, formatCurrency } from '../../utils/format.js';
 
 const emptyMaintenance = {
@@ -101,7 +102,7 @@ export function AdminMaintenancePage() {
                       <td>{request.title}</td>
                       <td>{request.tenantId?.fullName || '-'}</td>
                       <td>{request.roomId?.roomNumber || '-'}</td>
-                      <td>{request.status}</td>
+                      <td><StatusBadge value={request.status} /></td>
                       <td>{formatDate(request.createdAt)}</td>
                       <td className="row-actions">
                         <button type="button" className="text-button dark" onClick={() => startEdit(request)}>Review</button>

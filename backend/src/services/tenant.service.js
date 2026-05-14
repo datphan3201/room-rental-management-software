@@ -98,12 +98,12 @@ export async function updateTenantById(id, data) {
     identityNumber: payload.identityNumber,
     dateOfBirth: payload.dateOfBirth,
     hometown: payload.hometown,
-  });
+  }, { new: true });
 
   await Account.findByIdAndUpdate(tenant.accountId, {
     phone: payload.phone,
     ...(payload.password ? { passwordHash: await bcrypt.hash(payload.password, 10) } : {}),
-  });
+  }, { new: true });
 
   return Tenant.findById(id).populate('accountId', 'username phone role status').lean();
 }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { api } from '../../api/client.js';
+import { StatusBadge } from '../../components/StatusBadge.jsx';
 import { formatDate } from '../../utils/format.js';
 
 const emptyRequest = {
@@ -112,7 +113,7 @@ export function TenantMaintenancePage() {
                 {requests.length ? requests.map((request) => (
                   <tr key={request._id}>
                     <td>{request.title}</td>
-                    <td>{request.status}</td>
+                    <td><StatusBadge value={request.status} /></td>
                     <td>{request.responseNote || '-'}</td>
                     <td>{formatDate(request.createdAt)}</td>
                   </tr>

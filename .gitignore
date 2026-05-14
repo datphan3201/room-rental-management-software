@@ -11,4 +11,5 @@ frontend/node_modules/
 backend/.env
 frontend/.env
 backend/data/db.json
+backend/data/mongodb/
 *.log

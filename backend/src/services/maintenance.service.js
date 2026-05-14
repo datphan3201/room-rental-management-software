@@ -105,6 +105,6 @@ export async function updateMaintenanceRequestById(id, data) {
     payload.resolvedAt = new Date();
   }
 
-  const updated = await MaintenanceRequest.findByIdAndUpdate(id, payload);
+  const updated = await MaintenanceRequest.findByIdAndUpdate(id, payload, { new: true });
   return updated;
 }

@@ -6,7 +6,7 @@
 
 - Frontend: React 19, React Router, Axios, Vite
 - Backend: Node.js, Express.js
-- Data layer: local file-backed repository store
+- Data layer: MongoDB với Mongoose models
 - Authentication: JWT
 - Authorization: role-based access control với `ADMIN` và `TENANT`
 - Architecture: client-server, layered MVC/controller-service-model
@@ -15,7 +15,7 @@
 
 ```text
 .
-├── backend/              # Express API, controllers, services, models, local data store
+├── backend/              # Express API, controllers, services, Mongoose models
 │   ├── src/
 │   ├── .env.example
 │   └── package.json
@@ -34,6 +34,8 @@
 
 - Node.js 22.x
 - npm 10.x
+- MongoDB local hoặc MongoDB Atlas
+- Docker nếu muốn chạy MongoDB bằng `docker compose`
 - Git
 
 Nếu dùng `nvm`:
@@ -62,6 +64,20 @@ Tạo file môi trường:
 ```bash
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
+```
+
+Mặc định backend dùng MongoDB local:
+
+```text
+mongodb://127.0.0.1:27017/room_rental_management
+```
+
+Nếu dùng MongoDB Atlas hoặc database khác, sửa `MONGODB_URI` trong `backend/.env`.
+
+Nếu máy chưa cài MongoDB, chạy database local bằng Docker:
+
+```bash
+docker compose up -d mongodb
 ```
 
 ## Chạy dự án local
@@ -110,13 +126,7 @@ Password: tenant123
 
 ## Dữ liệu demo
 
-Backend lưu dữ liệu local tại:
-
-```text
-backend/data/db.json
-```
-
-File này không commit lên GitHub. Backend sẽ tự seed dữ liệu mẫu khi data store trống. Nếu muốn reset dữ liệu demo:
+Backend lưu dữ liệu trong MongoDB. Backend sẽ tự seed dữ liệu mẫu khi database chưa có account nào. Nếu muốn reset dữ liệu demo:
 
 ```bash
 npm run seed
@@ -127,10 +137,11 @@ npm run seed
 Khi chạy ngoài môi trường demo, cấu hình tối thiểu cần kiểm tra:
 
 - Đặt `NODE_ENV=production`.
+- Đặt `MONGODB_URI` trỏ tới MongoDB production.
 - Đặt `JWT_SECRET` bằng chuỗi bí mật mạnh, không dùng giá trị mẫu.
 - Đặt `CLIENT_ORIGIN` đúng origin frontend được phép gọi API, ví dụ `https://example.com`.
 - Chạy sau proxy HTTPS hoặc hosting có TLS.
-- Sao lưu `backend/data/db.json` nếu vẫn dùng local file store.
+- Thiết lập backup cho MongoDB.
 
 Backend đã có các lớp bảo vệ cơ bản:
 
@@ -218,4 +229,4 @@ Kiểm tra thủ công:
 - Đăng nhập được bằng tài khoản admin.
 - Đăng nhập được bằng tài khoản tenant.
 - Backend health check trả `200 OK`.
-- Không commit `node_modules/`, `.env`, `dist/`, `backend/data/db.json`.
+- Không commit `node_modules/`, `.env`, `dist/`.

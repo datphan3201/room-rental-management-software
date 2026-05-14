@@ -1,5 +1,6 @@
 import React from 'react';
 import { api } from '../../api/client.js';
+import { StatusBadge } from '../../components/StatusBadge.jsx';
 import { formatCurrency, formatDate } from '../../utils/format.js';
 
 export function TenantContractPage() {
@@ -43,7 +44,7 @@ export function TenantContractPage() {
               <tr key={contract._id}>
                 <td>{contract.roomId?.roomNumber || '-'}</td>
                 <td>{formatDate(contract.startDate)} to {formatDate(contract.endDate)}</td>
-                <td>{contract.status}</td>
+                <td><StatusBadge value={contract.status} /></td>
                 <td>{formatCurrency(contract.depositAmount)}</td>
                 <td>{formatCurrency(contract.monthlyRent)}</td>
                 <td>{contract.note || '-'}</td>

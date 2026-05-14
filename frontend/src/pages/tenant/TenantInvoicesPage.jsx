@@ -1,5 +1,6 @@
 import React from 'react';
 import { api } from '../../api/client.js';
+import { StatusBadge } from '../../components/StatusBadge.jsx';
 import { formatCurrency, formatDate } from '../../utils/format.js';
 
 export function TenantInvoicesPage() {
@@ -43,7 +44,7 @@ export function TenantInvoicesPage() {
                 <td>{invoice.billingMonth}</td>
                 <td>{invoice.roomId?.roomNumber || '-'}</td>
                 <td>{formatDate(invoice.dueDate)}</td>
-                <td>{invoice.status}</td>
+                <td><StatusBadge value={invoice.status} /></td>
                 <td>{formatCurrency(invoice.totalAmount)}</td>
               </tr>
             )) : <tr><td colSpan="5" className="muted">No invoices found.</td></tr>}

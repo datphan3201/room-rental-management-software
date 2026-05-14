@@ -9,7 +9,6 @@ const port = process.env.PORT || 4000;
 
 async function start() {
   await connectDB(process.env.MONGODB_URI);
-  console.log('Local data store initialized');
 
   const seedResult = await seedDemoData();
   if (seedResult.seeded) {

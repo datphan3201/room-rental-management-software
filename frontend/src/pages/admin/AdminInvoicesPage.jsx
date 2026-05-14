@@ -1,5 +1,6 @@
 import React from 'react';
 import { api } from '../../api/client.js';
+import { StatusBadge } from '../../components/StatusBadge.jsx';
 import { calculateInvoiceTotal, formatCurrency, formatDate } from '../../utils/format.js';
 
 const emptyInvoice = {
@@ -157,7 +158,7 @@ export function AdminInvoicesPage() {
                       <td>{invoice.billingMonth}</td>
                       <td>{invoice.tenantId?.fullName || '-'}</td>
                       <td>{invoice.roomId?.roomNumber || '-'}</td>
-                      <td>{invoice.status}</td>
+                      <td><StatusBadge value={invoice.status} /></td>
                       <td>{formatCurrency(invoice.totalAmount)}</td>
                       <td className="row-actions">
                         <button type="button" className="text-button dark" onClick={() => startEdit(invoice)}>Edit</button>
