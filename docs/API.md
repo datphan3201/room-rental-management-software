@@ -43,6 +43,14 @@ Current user:
 GET /auth/me
 ```
 
+Change own password:
+
+```http
+POST /auth/change-password
+```
+
+Public password reset is not exposed. Tenant password creation/reset is handled by admin from tenant management.
+
 ## Health
 
 ```http
@@ -147,10 +155,12 @@ GET /invoices/me
 GET /invoices
 POST /invoices
 PUT /invoices/:id
+POST /invoices/:id/payment-proof
 ```
 
 - `/invoices/me`: cần role `TENANT`
-- Các endpoint còn lại: cần role `ADMIN`
+- `POST /invoices/:id/payment-proof`: cần role `TENANT`
+- `GET/POST/PUT /invoices`: cần role `ADMIN`
 
 Business rules:
 
@@ -159,6 +169,8 @@ Business rules:
 - Tenant/room trên hóa đơn phải khớp hợp đồng được chọn.
 - Không cho trùng hóa đơn theo tenant và billing month.
 - Không được mark `Paid` trực tiếp bằng endpoint invoice; phải dùng payment confirmation.
+- Tenant có thể upload minh chứng thanh toán dạng ảnh cho hóa đơn chưa `Paid` hoặc `Cancelled`.
+- Giao diện xuất minh chứng thanh toán thành PDF bằng browser print/save flow.
 
 ## Payments
 

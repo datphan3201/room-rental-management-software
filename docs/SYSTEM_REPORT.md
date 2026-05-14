@@ -37,6 +37,8 @@ Implemented modules:
 - Audit log.
 - Search, filter, and pagination on list screens.
 - Browser print/PDF invoice export.
+- Browser print/PDF payment receipt export from uploaded receipt proofs.
+- Combined Billing screens that group invoices and payments.
 
 Explicitly excluded from the current scope:
 
@@ -252,7 +254,7 @@ Associations:
 | FR-10 | A room with an active contract shall not be manually changed to `Available` or `Maintenance` |
 | FR-11 | Admin shall be able to create tenant accounts and tenant profiles |
 | FR-12 | Tenant profile shall store full name, phone, email, identity number, date of birth, and hometown |
-| FR-13 | Tenant password shall be hashed before storage |
+| FR-13 | Tenant password shall be hashed before storage and managed by admin during tenant creation or reset |
 | FR-14 | Tenant phone and identity number shall be unique |
 | FR-15 | Admin shall be able to create contracts connecting one tenant to one room |
 | FR-16 | Contract shall store dates, deposit, rent, status, image URL, and note |
@@ -277,6 +279,7 @@ Associations:
 | FR-35 | Admin shall be able to view audit logs for important system actions |
 | FR-36 | List screens shall support search, filter, and pagination |
 | FR-37 | Admin shall be able to print invoices or save them as PDF from the browser |
+| FR-38 | Admin and tenant shall be able to export uploaded payment receipt proofs as browser-generated PDF |
 
 ### 4.2 Non-Functional Requirements
 
@@ -554,16 +557,18 @@ flowchart TB
   AdminRooms[/admin/rooms]
   AdminTenants[/admin/tenants]
   AdminContracts[/admin/contracts]
-  AdminInvoices[/admin/invoices]
-  AdminPayments[/admin/payments]
+  AdminBilling[/admin/billing]
+  AdminInvoices[/admin/invoices legacy]
+  AdminPayments[/admin/payments legacy]
   AdminMaintenance[/admin/maintenance]
   AdminReports[/admin/reports]
   AdminAudit[/admin/audit]
 
   Tenant[/tenant]
   TenantContract[/tenant/contract]
-  TenantInvoices[/tenant/invoices]
-  TenantPayments[/tenant/payments]
+  TenantBilling[/tenant/billing]
+  TenantInvoices[/tenant/invoices legacy]
+  TenantPayments[/tenant/payments legacy]
   TenantMaintenance[/tenant/maintenance]
 
   App --> AuthProvider
@@ -574,14 +579,16 @@ flowchart TB
   Admin --> AdminRooms
   Admin --> AdminTenants
   Admin --> AdminContracts
-  Admin --> AdminInvoices
-  Admin --> AdminPayments
+  Admin --> AdminBilling
+  AdminBilling --> AdminInvoices
+  AdminBilling --> AdminPayments
   Admin --> AdminMaintenance
   Admin --> AdminReports
   Admin --> AdminAudit
   Tenant --> TenantContract
-  Tenant --> TenantInvoices
-  Tenant --> TenantPayments
+  Tenant --> TenantBilling
+  TenantBilling --> TenantInvoices
+  TenantBilling --> TenantPayments
   Tenant --> TenantMaintenance
 ```
 
@@ -599,17 +606,19 @@ Protected admin route:
 - /admin/rooms -> AdminRoomsPage.
 - /admin/tenants -> AdminTenantsPage.
 - /admin/contracts -> AdminContractsPage.
-- /admin/invoices -> AdminInvoicesPage.
-- /admin/payments -> AdminPaymentsPage.
+- /admin/billing -> AdminBillingPage with Invoices and Payments tabs.
+- /admin/invoices -> AdminBillingPage with Invoices tab for backward-compatible routing.
+- /admin/payments -> AdminBillingPage with Payments tab for backward-compatible routing.
 - /admin/maintenance -> AdminMaintenancePage.
 - /admin/reports -> AdminReportsPage.
 - /admin/audit -> AdminAuditPage.
 Protected tenant route:
 - RequireAuth(role=TENANT) -> AppShell -> /tenant routes.
 - /tenant -> TenantDashboardPage.
-- /tenant/contract -> TenantContractPage.
-- /tenant/invoices -> TenantInvoicesPage.
-- /tenant/payments -> TenantPaymentsPage.
+- /tenant/contract -> TenantContractPage with contract detail modal.
+- /tenant/billing -> TenantBillingPage with Invoices and Payments tabs.
+- /tenant/invoices -> TenantBillingPage with Invoices tab for backward-compatible routing.
+- /tenant/payments -> TenantBillingPage with Payments tab for backward-compatible routing.
 - /tenant/maintenance -> TenantMaintenancePage.
 ```
 
@@ -1619,7 +1628,6 @@ Decision: Admin accepts or rejects?
 | Module | Endpoint | Role |
 | --- | --- | --- |
 | Auth | `POST /api/auth/login` | Public |
-| Auth | `POST /api/auth/forgot-password` | Public |
 | Auth | `GET /api/auth/me` | Authenticated |
 | Auth | `POST /api/auth/change-password` | Authenticated |
 | Health | `GET /api/health` | Public |
@@ -1763,21 +1771,24 @@ npm run build
 4. Open Tenants and show tenant records.
 5. Open Contracts and create or edit an active contract.
 6. Return to Rooms and show the room as `Occupied`.
-7. Open Invoices and create a monthly invoice.
-8. Open Payments and confirm payment for the invoice.
-9. Return to Invoices and show invoice status as `Paid`.
-10. Open Maintenance and review a tenant request.
+7. Open Billing, use the Invoices tab, and create a monthly invoice.
+8. Use the Payments tab to confirm payment for the invoice.
+9. Return to the Invoices tab and show invoice status as `Paid`.
+10. If a receipt proof exists, use `Export PDF Receipt` from the Invoices tab.
+11. Open Maintenance and review a tenant request.
 
 ### 16.2 Tenant Demo
 
 1. Log out from admin.
 2. Log in as `0900000001 / tenant123`.
 3. Open Tenant Dashboard.
-4. Open My Contract.
-5. Open My Invoices.
-6. Open My Payments.
-7. Open My Maintenance and create a request.
-8. Log back in as admin and review the request.
+4. Open My Contract and click a contract row to view details in a modal.
+5. Open Billing and review invoices.
+6. Upload a payment receipt proof from an unpaid invoice.
+7. Export an uploaded receipt proof as PDF from the invoice row.
+8. Open the Payments tab to review payment history.
+9. Open My Maintenance and create a request.
+10. Log back in as admin and review the request.
 
 ## 17. Current Limitations And Future Improvements
 
@@ -1785,7 +1796,7 @@ npm run build
 
 - The system now uses MongoDB; production still needs a managed database, backup policy, and migration process.
 - Contract attachments are stored as URL/data URL text rather than object storage files.
-- Invoice PDF export uses browser print/save flow, not server-side PDF generation.
+- Invoice and receipt PDF export use browser print/save flow, not server-side PDF generation.
 - Search, filtering, and pagination are client-side, not database-backed.
 - Email or SMS notifications are not implemented.
 - CI/CD pipeline is not implemented.
