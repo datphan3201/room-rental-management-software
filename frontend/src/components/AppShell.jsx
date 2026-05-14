@@ -17,6 +17,8 @@ export function AppShell() {
         ['Invoices', '/admin/invoices'],
         ['Payments', '/admin/payments'],
         ['Maintenance', '/admin/maintenance'],
+        ['Reports', '/admin/reports'],
+        ['Audit', '/admin/audit'],
       ]
     : [
         ['Dashboard', '/tenant'],

@@ -1,5 +1,7 @@
 import React from 'react';
 import { api } from '../../api/client.js';
+import { ListToolbar, useListView } from '../../components/ListTools.jsx';
+import { Modal } from '../../components/Modal.jsx';
 import { formatCurrency, formatDate } from '../../utils/format.js';
 
 const emptyPayment = {
@@ -18,6 +20,10 @@ export function AdminPaymentsPage() {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [formOpen, setFormOpen] = React.useState(false);
+  const listView = useListView(payments, {
+    searchFields: ['invoiceId.billingMonth', 'tenantId.fullName', 'method', 'note'],
+  });
 
   async function loadData() {
     setLoading(true);
@@ -39,6 +45,12 @@ export function AdminPaymentsPage() {
 
   function resetForm() {
     setForm(emptyPayment);
+    setFormOpen(false);
+  }
+
+  function startConfirmPayment() {
+    setForm(emptyPayment);
+    setFormOpen(true);
   }
 
   function applyInvoice(invoiceId) {
@@ -77,43 +89,44 @@ export function AdminPaymentsPage() {
           <h2>Payments</h2>
           <p className="muted">Manually confirm outside payments and mark invoices as paid.</p>
         </div>
+        <button type="button" className="button secondary" onClick={startConfirmPayment}>Confirm payment</button>
       </div>
 
       {error ? <div className="error-box">{error}</div> : null}
 
-      <div className="grid-two">
-        <div className="panel-subsection">
-          <h3>Payment history</h3>
-          {loading ? <p className="muted">Loading...</p> : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Invoice</th>
-                    <th>Tenant</th>
-                    <th>Amount</th>
-                    <th>Date</th>
-                    <th>Method</th>
+      <div className="panel-subsection">
+        <h3>Payment history</h3>
+        <ListToolbar view={listView} searchPlaceholder="Search invoice, tenant, method..." />
+        {loading ? <p className="muted">Loading...</p> : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Invoice</th>
+                  <th>Tenant</th>
+                  <th>Amount</th>
+                  <th>Date</th>
+                  <th>Method</th>
+                </tr>
+              </thead>
+              <tbody>
+                {listView.items.length ? listView.items.map((payment) => (
+                  <tr key={payment._id}>
+                    <td>{payment.invoiceId?.billingMonth || '-'}</td>
+                    <td>{payment.tenantId?.fullName || '-'}</td>
+                    <td>{formatCurrency(payment.amount)}</td>
+                    <td>{formatDate(payment.paymentDate)}</td>
+                    <td>{payment.method}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {payments.length ? payments.map((payment) => (
-                    <tr key={payment._id}>
-                      <td>{payment.invoiceId?.billingMonth || '-'}</td>
-                      <td>{payment.tenantId?.fullName || '-'}</td>
-                      <td>{formatCurrency(payment.amount)}</td>
-                      <td>{formatDate(payment.paymentDate)}</td>
-                      <td>{payment.method}</td>
-                    </tr>
-                  )) : <tr><td colSpan="5" className="muted">No payments yet.</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                )) : <tr><td colSpan="5" className="muted">No matching payments.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-        <form className="panel-subsection form-grid" onSubmit={handleSubmit}>
-          <h3>Confirm payment</h3>
+      <Modal open={formOpen} title="Confirm payment" onClose={resetForm}>
+        <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             Invoice
             <select value={form.invoiceId} onChange={(e) => applyInvoice(e.target.value)} required>
@@ -151,10 +164,10 @@ export function AdminPaymentsPage() {
           </label>
           <div className="button-row">
             <button className="button" disabled={saving}>{saving ? 'Saving...' : 'Confirm payment'}</button>
-            <button type="button" className="button secondary" onClick={resetForm}>Reset</button>
+            <button type="button" className="button secondary" onClick={resetForm}>Cancel</button>
           </div>
         </form>
-      </div>
+      </Modal>
     </section>
   );
 }

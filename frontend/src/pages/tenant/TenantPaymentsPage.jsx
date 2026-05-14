@@ -1,10 +1,14 @@
 import React from 'react';
 import { api } from '../../api/client.js';
+import { ListToolbar, useListView } from '../../components/ListTools.jsx';
 import { formatCurrency, formatDate } from '../../utils/format.js';
 
 export function TenantPaymentsPage() {
   const [payments, setPayments] = React.useState([]);
   const [error, setError] = React.useState('');
+  const listView = useListView(payments, {
+    searchFields: ['invoiceId.billingMonth', 'method', 'note'],
+  });
 
   React.useEffect(() => {
     let mounted = true;
@@ -26,6 +30,7 @@ export function TenantPaymentsPage() {
       <h2>My Payments</h2>
       <p className="muted">Confirmed payment history entered by the admin.</p>
       {error ? <div className="error-box">{error}</div> : null}
+      <ListToolbar view={listView} searchPlaceholder="Search invoice, method, note..." />
       <div className="table-wrap">
         <table>
           <thead>
@@ -38,7 +43,7 @@ export function TenantPaymentsPage() {
             </tr>
           </thead>
           <tbody>
-            {payments.length ? payments.map((payment) => (
+            {listView.items.length ? listView.items.map((payment) => (
               <tr key={payment._id}>
                 <td>{payment.invoiceId?.billingMonth || '-'}</td>
                 <td>{formatDate(payment.paymentDate)}</td>
@@ -46,7 +51,7 @@ export function TenantPaymentsPage() {
                 <td>{formatCurrency(payment.amount)}</td>
                 <td>{payment.note || '-'}</td>
               </tr>
-            )) : <tr><td colSpan="5" className="muted">No payments found.</td></tr>}
+            )) : <tr><td colSpan="5" className="muted">No matching payments.</td></tr>}
           </tbody>
         </table>
       </div>

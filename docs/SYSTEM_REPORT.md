@@ -27,12 +27,19 @@ Implemented modules:
 - Authentication and role-based authorization.
 - Admin dashboard.
 - Room management.
+- Room Status Board with board/list view modes, floor grouping, status badges, room type, rent, and payment status.
 - Tenant management.
 - Contract management.
 - Invoice management.
 - Payment confirmation.
 - Maintenance request management.
 - Tenant portal.
+- Revenue reporting.
+- Audit log.
+- Search, filter, and pagination on list screens.
+- Modal-based create/edit/review forms and record action dialogs.
+- Browser print/PDF invoice export.
+- Realistic demo seed data for local simulation.
 
 Explicitly excluded from the current scope:
 
@@ -41,7 +48,7 @@ Explicitly excluded from the current scope:
 - Payment gateway integration.
 - Automatic bank transfer verification.
 - Full electronic contract signing.
-- PDF invoice export.
+- Dedicated server-side PDF generation.
 - Staff or manager role.
 
 ### 1.3 Technology Stack
@@ -79,6 +86,7 @@ Explicitly excluded from the current scope:
 | Confirm payments | Yes | No |
 | View payment history | All payments | Own payments only |
 | Manage maintenance requests | Review and update all requests | Create and view own requests |
+| View reports and audit logs | Yes | No |
 
 ## 3. Use Case Model
 
@@ -105,6 +113,8 @@ flowchart LR
   UC14((UC-14 Review Maintenance Request))
   UC15((UC-15 Resolve Maintenance Request))
   UC16((UC-16 View Personal Rental Portal))
+  UC17((UC-17 View Room Status Board))
+  UC18((UC-18 View Reports And Audit Logs))
 
   Admin --> UC01
   Admin --> UC02
@@ -118,6 +128,8 @@ flowchart LR
   Admin --> UC12
   Admin --> UC14
   Admin --> UC15
+  Admin --> UC17
+  Admin --> UC18
 
   Tenant --> UC01
   Tenant --> UC02
@@ -152,8 +164,10 @@ Use cases:
 - UC-14 Review Maintenance Request
 - UC-15 Resolve Maintenance Request
 - UC-16 View Personal Rental Portal
+- UC-17 View Room Status Board
+- UC-18 View Reports And Audit Logs
 Associations:
-- Admin connects to UC-01, UC-02, UC-03, UC-04, UC-05, UC-06, UC-07, UC-09, UC-11, UC-12, UC-14, UC-15.
+- Admin connects to UC-01, UC-02, UC-03, UC-04, UC-05, UC-06, UC-07, UC-09, UC-11, UC-12, UC-14, UC-15, UC-17, UC-18.
 - Tenant connects to UC-01, UC-02, UC-08, UC-10, UC-12, UC-13, UC-16.
 ```
 
@@ -177,6 +191,8 @@ Associations:
 | UC-14 | Review Maintenance Request | Admin | Admin accepts or rejects a maintenance request |
 | UC-15 | Resolve Maintenance Request | Admin | Admin marks an accepted request as resolved |
 | UC-16 | View Personal Rental Portal | Tenant | Tenant views the personal rental portal |
+| UC-17 | View Room Status Board | Admin | Admin views room state in either board or list mode with equivalent actions |
+| UC-18 | View Reports And Audit Logs | Admin | Admin reviews revenue summaries and recent system actions |
 
 ### 3.3 Detailed Use Cases
 
@@ -269,6 +285,15 @@ Associations:
 | FR-31 | Resolved maintenance requests shall contain resolved time |
 | FR-32 | Admin dashboard shall show room, tenant, invoice, and revenue statistics |
 | FR-33 | Tenant dashboard shall show personal invoice and billing summary |
+| FR-34 | Admin shall be able to view monthly revenue reports |
+| FR-35 | Admin shall be able to view audit logs for important system actions |
+| FR-36 | List screens shall support search, filter, and pagination |
+| FR-37 | Admin shall be able to print invoices or save them as PDF from the browser |
+| FR-38 | Room management shall support board and list view modes with equivalent room actions |
+| FR-39 | Room cards shall show room type, occupancy status, rent, and latest payment state based on current room, contract, and invoice data |
+| FR-40 | Record actions shall open from a compact action button and show concrete operations in a modal dialog |
+| FR-41 | Create, edit, confirm payment, and maintenance review forms shall open in modal dialogs rather than staying expanded on the page |
+| FR-42 | Demo seed data shall include realistic rooms, tenants, contracts, invoices, payments, maintenance requests, and audit logs |
 
 ### 4.2 Non-Functional Requirements
 
@@ -324,16 +349,16 @@ Nodes:
 - Auth Middleware
 - Controllers
 - Services / Business Rules
-- Repository Models
-- Local JSON Store
+- Mongoose Models
+- MongoDB
 Edges:
 - User Browser sends UI interactions to React + Vite Frontend.
 - React + Vite Frontend sends HTTP /api requests with JWT to Express REST API.
 - Express REST API passes protected requests through Auth Middleware.
 - Auth Middleware allows requests to Controllers.
 - Controllers call Services.
-- Services call Repository Models.
-- Repository Models read and write Local JSON Store.
+- Services call Mongoose Models.
+- Mongoose Models read and write MongoDB.
 ```
 
 ### 5.2 Layered Architecture
@@ -362,6 +387,8 @@ flowchart TB
     PaymentSvc[Payment Service]
     MaintenanceSvc[Maintenance Service]
     DashboardSvc[Dashboard Service]
+    ReportSvc[Report Service]
+    AuditSvc[Audit Service]
   end
 
   subgraph Data["Data Layer"]
@@ -400,6 +427,8 @@ Layers:
    - Payment Service
    - Maintenance Service
    - Dashboard Service
+   - Report Service
+   - Audit Service
 4. Data Layer:
    - Mongoose Models
    - MongoDB
@@ -541,6 +570,8 @@ flowchart TB
   AdminInvoices[/admin/invoices]
   AdminPayments[/admin/payments]
   AdminMaintenance[/admin/maintenance]
+  AdminReports[/admin/reports]
+  AdminAudit[/admin/audit]
 
   Tenant[/tenant]
   TenantContract[/tenant/contract]
@@ -559,6 +590,8 @@ flowchart TB
   Admin --> AdminInvoices
   Admin --> AdminPayments
   Admin --> AdminMaintenance
+  Admin --> AdminReports
+  Admin --> AdminAudit
   Tenant --> TenantContract
   Tenant --> TenantInvoices
   Tenant --> TenantPayments
@@ -582,6 +615,8 @@ Protected admin route:
 - /admin/invoices -> AdminInvoicesPage.
 - /admin/payments -> AdminPaymentsPage.
 - /admin/maintenance -> AdminMaintenancePage.
+- /admin/reports -> AdminReportsPage.
+- /admin/audit -> AdminAuditPage.
 Protected tenant route:
 - RequireAuth(role=TENANT) -> AppShell -> /tenant routes.
 - /tenant -> TenantDashboardPage.
@@ -606,6 +641,7 @@ erDiagram
   INVOICE ||--o| PAYMENT : paid_by
   TENANT ||--o{ PAYMENT : makes
   ACCOUNT ||--o{ PAYMENT : confirms
+  ACCOUNT ||--o{ AUDIT_LOG : performs
   TENANT ||--o{ MAINTENANCE_REQUEST : creates
   ROOM ||--o{ MAINTENANCE_REQUEST : has
 
@@ -694,6 +730,17 @@ erDiagram
     number maintenanceCost
     datetime resolvedAt
   }
+
+  AUDIT_LOG {
+    string _id
+    string actorId
+    string action
+    string entityType
+    string entityId
+    string summary
+    object metadata
+    datetime createdAt
+  }
 ```
 
 LLM-readable ERD specification:
@@ -714,6 +761,8 @@ Entities:
    Fields: _id, invoiceId, tenantId, amount, paymentDate, method, confirmedBy, note.
 7. MaintenanceRequest
    Fields: _id, tenantId, roomId, title, description, status, responseNote, maintenanceCost, resolvedAt.
+8. AuditLog
+   Fields: _id, actorId, action, entityType, entityId, summary, metadata, createdAt.
 Relationships:
 - Account 1 to 0..1 Tenant.
 - Tenant 1 to many Contract.
@@ -724,6 +773,7 @@ Relationships:
 - Invoice 1 to 0..1 Payment.
 - Tenant 1 to many Payment.
 - Account 1 to many Payment as confirmer.
+- Account 1 to many AuditLog as actor.
 - Tenant 1 to many MaintenanceRequest.
 - Room 1 to many MaintenanceRequest.
 Business constraint:
@@ -741,6 +791,7 @@ Business constraint:
 | Invoice | Stores monthly billing data | billingMonth, utility fields, totalAmount, dueDate, status |
 | Payment | Stores confirmed payment record | invoiceId, tenantId, amount, paymentDate, method, confirmedBy |
 | MaintenanceRequest | Stores repair or support request | tenantId, roomId, title, description, status, responseNote |
+| AuditLog | Stores important administrative and tenant-facing events | actorId, action, entityType, entityId, summary, metadata |
 
 ## 7. Business Rules
 
@@ -766,6 +817,9 @@ Business constraint:
 | BR-18 | Rejected maintenance request must include a response note |
 | BR-19 | Resolved maintenance request automatically receives `resolvedAt` if missing |
 | BR-20 | Room or tenant with related rental records cannot be deleted |
+| BR-21 | Revenue reports aggregate invoice totals and payment counts by billing month |
+| BR-22 | Create, update, delete, payment confirmation, and maintenance review actions should write audit log entries |
+| BR-23 | The Room Status Board derives payment state from the latest invoice for the room's active contract |
 
 ## 8. System Workflows
 
@@ -1015,7 +1069,7 @@ sequenceDiagram
   participant UI as React LoginPage
   participant API as Express /auth/login
   participant AuthSvc as AuthService
-  participant Account as Account Repository
+  participant Account as Account Model
 
   User->>UI: Enter loginId and password
   UI->>API: POST /api/auth/login
@@ -1039,13 +1093,13 @@ Participants:
 - React LoginPage
 - Express /auth/login
 - AuthService
-- Account Repository
+- Account Model
 Messages:
 1. User enters loginId and password in React LoginPage.
 2. React LoginPage sends POST /api/auth/login to Express API.
 3. Express API calls AuthService.loginWithCredentials().
-4. AuthService queries Account Repository by username or phone.
-5. Account Repository returns account.
+4. AuthService queries Account Model by username or phone.
+5. Account Model returns account.
 6. AuthService compares password using bcrypt.
 7. AuthService signs JWT and returns token plus user profile.
 8. Express API returns 200 OK.
@@ -1062,9 +1116,9 @@ sequenceDiagram
   participant API as /api/contracts
   participant Middleware as Auth Middleware
   participant Service as ContractService
-  participant Room as Room Repository
-  participant Tenant as Tenant Repository
-  participant Contract as Contract Repository
+  participant Room as Room Model
+  participant Tenant as Tenant Model
+  participant Contract as Contract Model
 
   Admin->>UI: Fill contract form
   UI->>API: POST /api/contracts + JWT
@@ -1091,9 +1145,9 @@ Participants:
 - /api/contracts endpoint
 - Auth Middleware
 - ContractService
-- Room Repository
-- Tenant Repository
-- Contract Repository
+- Room Model
+- Tenant Model
+- Contract Model
 Messages:
 1. Admin fills contract form.
 2. AdminContractsPage sends POST /api/contracts with JWT.
@@ -1120,23 +1174,23 @@ sequenceDiagram
   participant PaymentAPI as /api/payments/confirm
   participant InvoiceSvc as InvoiceService
   participant PaymentSvc as PaymentService
-  participant InvoiceRepo as Invoice Repository
-  participant PaymentRepo as Payment Repository
+  participant InvoiceModel as Invoice Model
+  participant PaymentModel as Payment Model
 
   Admin->>InvoiceUI: Create invoice from active contract
   InvoiceUI->>InvoiceAPI: POST /api/invoices
   InvoiceAPI->>InvoiceSvc: createInvoice(payload)
   InvoiceSvc->>InvoiceSvc: Calculate fees and total
-  InvoiceSvc->>InvoiceRepo: create invoice with status Unpaid
+  InvoiceSvc->>InvoiceModel: create invoice with status Unpaid
   InvoiceAPI-->>InvoiceUI: 201 Created
 
   Admin->>PaymentUI: Select unpaid invoice
   PaymentUI->>PaymentAPI: POST /api/payments/confirm
   PaymentAPI->>PaymentSvc: confirmPayment(payload)
-  PaymentSvc->>InvoiceRepo: find invoice
+  PaymentSvc->>InvoiceModel: find invoice
   PaymentSvc->>PaymentSvc: Validate tenant and amount
-  PaymentSvc->>PaymentRepo: create payment
-  PaymentSvc->>InvoiceRepo: update status = Paid
+  PaymentSvc->>PaymentModel: create payment
+  PaymentSvc->>InvoiceModel: update status = Paid
   PaymentAPI-->>PaymentUI: 201 Created
 ```
 
@@ -1152,8 +1206,8 @@ Participants:
 - /api/payments/confirm endpoint
 - InvoiceService
 - PaymentService
-- Invoice Repository
-- Payment Repository
+- Invoice Model
+- Payment Model
 Messages:
 Invoice creation:
 1. Admin selects active contract and enters billing data.
@@ -1183,18 +1237,18 @@ sequenceDiagram
   participant API as /api/maintenance
   participant Middleware as Auth Middleware
   participant Service as MaintenanceService
-  participant TenantRepo as Tenant Repository
-  participant ContractRepo as Contract Repository
-  participant RequestRepo as Maintenance Repository
+  participant TenantModel as Tenant Model
+  participant ContractModel as Contract Model
+  participant RequestModel as Maintenance Model
 
   Tenant->>UI: Enter title and description
   UI->>API: POST /api/maintenance + JWT
   API->>Middleware: authenticate + authorize TENANT
   Middleware-->>API: allowed
   API->>Service: createMaintenanceRequestForAccount(accountId, payload)
-  Service->>TenantRepo: find tenant by accountId
-  Service->>ContractRepo: verify active contract for room
-  Service->>RequestRepo: create request status Pending Review
+  Service->>TenantModel: find tenant by accountId
+  Service->>ContractModel: verify active contract for room
+  Service->>RequestModel: create request status Pending Review
   API-->>UI: 201 Created
   UI->>Tenant: Show request history
 ```
@@ -1209,9 +1263,9 @@ Participants:
 - /api/maintenance endpoint
 - Auth Middleware
 - MaintenanceService
-- Tenant Repository
-- Contract Repository
-- Maintenance Repository
+- Tenant Model
+- Contract Model
+- Maintenance Model
 Messages:
 1. Tenant enters title and description.
 2. TenantMaintenancePage sends POST /api/maintenance with JWT.
@@ -1376,6 +1430,8 @@ Decision: Admin accepts or rejects?
 | Payments | `GET /api/payments`, `POST /api/payments/confirm` | Admin |
 | Maintenance | `GET /api/maintenance/me`, `POST /api/maintenance` | Tenant |
 | Maintenance | `GET /api/maintenance`, `PUT /api/maintenance/:id` | Admin |
+| Reports | `GET /api/reports/revenue` | Admin |
+| Audit | `GET /api/audit` | Admin |
 
 The complete endpoint reference and business rules are maintained in `docs/API.md`.
 
@@ -1412,7 +1468,7 @@ Tenant data isolation is enforced through service-level queries:
 - `JWT_SECRET` is required when `NODE_ENV=production`.
 - `JWT_EXPIRES_IN` is configurable.
 - CORS is controlled by `CLIENT_ORIGIN`.
-- Request body size is limited to `100kb`.
+- Request body size is limited to `2mb` so contract attachment data URLs can be accepted for demo use.
 - Security headers are set: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`.
 - Central error handler avoids exposing internal stack traces.
 
@@ -1461,6 +1517,8 @@ Covered cases:
 - Reject maintenance request when room does not belong to tenant active contract.
 - Reject multiple active contracts on the same room.
 - Releasing an occupied room when active contract is terminated.
+- Revenue report summarizes the seeded multi-invoice dataset.
+- Audit log writes and returns recent events.
 
 Run tests:
 
@@ -1486,6 +1544,8 @@ npm run build
 | FR-24, FR-25, FR-26 | UC-11 | TC-09, TC-10 |
 | FR-28, FR-29, FR-30, FR-31 | UC-13, UC-14, UC-15 | TC-11, TC-12, TC-13 |
 | FR-32, FR-33 | UC-03, UC-16 | TC-14 |
+| FR-34, FR-35 | UC-18 | Automated report and audit service tests |
+| FR-38, FR-39, FR-40, FR-41 | UC-04, UC-17 | Frontend build and manual UI demo |
 
 ## 16. Demo Script
 
@@ -1493,14 +1553,17 @@ npm run build
 
 1. Log in as `admin / admin123`.
 2. Open Admin Dashboard and explain statistics.
-3. Open Rooms and show room inventory.
-4. Open Tenants and show tenant records.
-5. Open Contracts and create or edit an active contract.
-6. Return to Rooms and show the room as `Occupied`.
-7. Open Invoices and create a monthly invoice.
-8. Open Payments and confirm payment for the invoice.
-9. Return to Invoices and show invoice status as `Paid`.
-10. Open Maintenance and review a tenant request.
+3. Open Rooms and show the Room Status Board grouped by floor; switch between Board and List.
+4. Use the `Actions` button on a room to open the action dialog and edit a room.
+5. Open Tenants and show tenant records with modal-based actions.
+6. Open Contracts and create or edit an active contract.
+7. Return to Rooms and show the room as `Occupied` with room type and payment state.
+8. Open Invoices and create a monthly invoice, then use `Actions` to edit or print it.
+9. Open Payments and confirm payment for the invoice.
+10. Return to Invoices and show invoice status as `Paid`.
+11. Open Maintenance and review a tenant request from the action dialog.
+12. Open Reports and show monthly revenue totals.
+13. Open Audit and show recent administrative events.
 
 ### 16.2 Tenant Demo
 
@@ -1513,16 +1576,34 @@ npm run build
 7. Open My Maintenance and create a request.
 8. Log back in as admin and review the request.
 
+### 16.3 Seed Data For Demo
+
+Run the seed script before a demo:
+
+```bash
+npm run seed
+```
+
+The realistic seed contains:
+
+- Admin accounts: `admin / admin123`, `owner / owner123`.
+- Tenant accounts: `0900000001` to `0900000007`, all using password `tenant123`.
+- 12 rooms across floors 1 to 3 with `Available`, `Occupied`, and `Maintenance` statuses.
+- 7 contracts, including active and historical terminated data.
+- 17 invoices across March, April, and May 2026 with `Paid`, `Unpaid`, and `Overdue` states.
+- 11 payment records.
+- Maintenance requests in `Pending Review`, `Accepted`, `Resolved`, and `Rejected` states.
+- Audit log entries for report and seed activity.
+
 ## 17. Current Limitations And Future Improvements
 
 ### 17.1 Current Limitations
 
 - The system now uses MongoDB; production still needs a managed database, backup policy, and migration process.
-- Contract image is stored as URL text only; there is no real file upload.
-- Invoice PDF export is not implemented.
-- Advanced pagination, filtering, and searching are not implemented.
+- Contract attachments are stored as URL/data URL text rather than object storage files.
+- Invoice PDF export uses browser print/save flow, not server-side PDF generation.
+- Search, filtering, and pagination are client-side, not database-backed.
 - Email or SMS notifications are not implemented.
-- Audit logs are not implemented.
 - CI/CD pipeline is not implemented.
 
 ### 17.2 Future Improvements
@@ -1531,10 +1612,10 @@ Recommended improvements:
 
 1. Add migration and backup strategy.
 2. Add database indexes and monitoring for production workloads.
-3. Add pagination and filtering for large lists.
-4. Add audit logs for contract, invoice, payment, and maintenance changes.
-5. Add PDF invoice export.
-6. Add contract image/file upload.
+3. Add server-side pagination and filtering for large lists.
+4. Add server-side PDF invoice generation.
+5. Move contract attachments to object storage.
+6. Expand audit logs with diff-level before/after values.
 7. Add notification for due invoices and maintenance updates.
 8. Add staff or manager role if the rental business grows.
 

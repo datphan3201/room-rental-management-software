@@ -10,6 +10,8 @@ import { AdminContractsPage } from './pages/admin/AdminContractsPage.jsx';
 import { AdminInvoicesPage } from './pages/admin/AdminInvoicesPage.jsx';
 import { AdminPaymentsPage } from './pages/admin/AdminPaymentsPage.jsx';
 import { AdminMaintenancePage } from './pages/admin/AdminMaintenancePage.jsx';
+import { AdminReportsPage } from './pages/admin/AdminReportsPage.jsx';
+import { AdminAuditPage } from './pages/admin/AdminAuditPage.jsx';
 import { TenantDashboardPage } from './pages/tenant/TenantDashboardPage.jsx';
 import { TenantContractPage } from './pages/tenant/TenantContractPage.jsx';
 import { TenantInvoicesPage } from './pages/tenant/TenantInvoicesPage.jsx';
@@ -54,6 +56,8 @@ export default function App() {
           <Route path="invoices" element={<AdminInvoicesPage />} />
           <Route path="payments" element={<AdminPaymentsPage />} />
           <Route path="maintenance" element={<AdminMaintenancePage />} />
+          <Route path="reports" element={<AdminReportsPage />} />
+          <Route path="audit" element={<AdminAuditPage />} />
         </Route>
         <Route
           path="/tenant"

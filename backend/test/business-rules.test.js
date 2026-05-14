@@ -10,6 +10,8 @@ import { createContract, getContracts, updateContractById } from '../src/service
 import { getInvoices } from '../src/services/invoice.service.js';
 import { confirmPayment } from '../src/services/payment.service.js';
 import { createMaintenanceRequestForAccount } from '../src/services/maintenance.service.js';
+import { getRevenueReport } from '../src/services/report.service.js';
+import { getAuditLogs, writeAuditLog } from '../src/services/audit.service.js';
 
 process.env.NODE_ENV = 'test';
 
@@ -29,8 +31,8 @@ test('payment confirmation rejects tenant mismatch', async () => {
   const adminAuth = await loginWithCredentials({ loginId: 'admin', password: 'admin123' });
   const [invoice] = await getInvoices();
   const otherTenant = await createTenantWithAccount({
-    fullName: 'Tran Thi B',
-    phone: '0900000002',
+    fullName: 'Test Mismatch Tenant',
+    phone: '0999999901',
     identityNumber: '222222222222',
     dateOfBirth: '2001-02-02',
     hometown: 'Da Nang',
@@ -53,7 +55,7 @@ test('payment confirmation rejects tenant mismatch', async () => {
 test('tenant maintenance request rejects rooms outside active contract', async () => {
   const tenantAuth = await loginWithCredentials({ loginId: '0900000001', password: 'tenant123' });
   const room = await createRoom({
-    roomNumber: 'C301',
+    roomNumber: 'T999',
     floor: 3,
     roomType: 'Standard',
     monthlyRent: 3000000,
@@ -74,7 +76,8 @@ test('tenant maintenance request rejects rooms outside active contract', async (
 
 test('only one active contract is allowed per room', async () => {
   const [tenant] = await getTenants();
-  const [contract] = await getContracts();
+  const contracts = await getContracts();
+  const contract = contracts.find((item) => item.status === 'Active');
 
   await assert.rejects(
     () => createContract({
@@ -91,7 +94,8 @@ test('only one active contract is allowed per room', async () => {
 });
 
 test('terminating active contract releases occupied room', async () => {
-  const [contract] = await getContracts();
+  const contracts = await getContracts();
+  const contract = contracts.find((item) => item.status === 'Active');
 
   await updateContractById(contract._id, {
     tenantId: contract.tenantId._id,
@@ -107,4 +111,32 @@ test('terminating active contract releases occupied room', async () => {
   const rooms = await getRooms();
   const releasedRoom = rooms.find((room) => String(room._id) === String(contract.roomId._id));
   assert.equal(releasedRoom.status, 'Available');
+});
+
+test('revenue report summarizes seeded invoice data', async () => {
+  const report = await getRevenueReport({ from: '2026-05', to: '2026-05' });
+  const [may] = report.rows;
+
+  assert.equal(report.rows.length, 1);
+  assert.equal(may.month, '2026-05');
+  assert.ok(report.summary.invoiceCount >= 5);
+  assert.ok(report.summary.billedAmount > 4150000);
+  assert.ok(report.summary.unpaidAmount >= 4150000);
+  assert.ok(report.summary.paidAmount > 0);
+});
+
+test('audit log stores and returns recent events', async () => {
+  const adminAuth = await loginWithCredentials({ loginId: 'admin', password: 'admin123' });
+  await writeAuditLog({
+    actorId: adminAuth.user.id,
+    action: 'TEST',
+    entityType: 'System',
+    entityId: 'business-rules-test',
+    summary: 'Recorded test audit event',
+  });
+
+  const [log] = await getAuditLogs({ entityType: 'System' });
+  assert.equal(log.action, 'TEST');
+  assert.equal(log.summary, 'Recorded test audit event');
+  assert.equal(log.actorId.username, 'admin');
 });

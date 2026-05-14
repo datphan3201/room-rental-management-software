@@ -1,5 +1,8 @@
 import React from 'react';
 import { api } from '../../api/client.js';
+import { ActionButton, ActionDialog } from '../../components/ActionDialog.jsx';
+import { ListToolbar, useListView } from '../../components/ListTools.jsx';
+import { Modal } from '../../components/Modal.jsx';
 import { StatusBadge } from '../../components/StatusBadge.jsx';
 import { formatDate, formatCurrency } from '../../utils/format.js';
 
@@ -24,6 +27,12 @@ export function AdminContractsPage() {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [formOpen, setFormOpen] = React.useState(false);
+  const [actionContract, setActionContract] = React.useState(null);
+  const listView = useListView(contracts, {
+    searchFields: ['tenantId.fullName', 'tenantId.phone', 'roomId.roomNumber', 'status', 'note'],
+    statusField: 'status',
+  });
 
   async function loadData() {
     setLoading(true);
@@ -51,10 +60,18 @@ export function AdminContractsPage() {
   function resetForm() {
     setEditingId(null);
     setForm(emptyContract);
+    setFormOpen(false);
+  }
+
+  function startCreate() {
+    setEditingId(null);
+    setForm(emptyContract);
+    setFormOpen(true);
   }
 
   function startEdit(contract) {
     setEditingId(contract._id);
+    setFormOpen(true);
     setForm({
       tenantId: contract.tenantId?._id || contract.tenantId || '',
       roomId: contract.roomId?._id || contract.roomId || '',
@@ -92,6 +109,16 @@ export function AdminContractsPage() {
     }
   }
 
+  function handleContractFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setForm((prev) => ({ ...prev, contractImageUrl: String(reader.result || '') }));
+    };
+    reader.readAsDataURL(file);
+  }
+
   async function handleDelete(id) {
     if (!window.confirm('Delete this contract?')) return;
     try {
@@ -110,53 +137,53 @@ export function AdminContractsPage() {
           <h2>Contracts</h2>
           <p className="muted">Manage contract metadata and room occupancy state.</p>
         </div>
-        <button type="button" className="button secondary" onClick={resetForm}>New contract</button>
+        <button type="button" className="button secondary" onClick={startCreate}>New contract</button>
       </div>
 
       {error ? <div className="error-box">{error}</div> : null}
 
-      <div className="grid-two">
-        <div className="panel-subsection">
-          <h3>Contract list</h3>
-          {loading ? (
-            <p className="muted">Loading...</p>
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Tenant</th>
-                    <th>Room</th>
-                    <th>Period</th>
-                    <th>Status</th>
-                    <th>Rent</th>
-                    <th>Action</th>
+      <div className="panel-subsection">
+        <h3>Contract list</h3>
+        <ListToolbar view={listView} searchPlaceholder="Search tenant, room, note..." />
+        {loading ? (
+          <p className="muted">Loading...</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tenant</th>
+                  <th>Room</th>
+                  <th>Period</th>
+                  <th>Status</th>
+                  <th>Rent</th>
+                </tr>
+              </thead>
+              <tbody>
+                {listView.items.length ? listView.items.map((contract) => (
+                  <tr key={contract._id}>
+                    <td>
+                      <div className="record-primary">
+                        <strong>{contract.tenantId?.fullName || '-'}</strong>
+                        <ActionButton onClick={() => setActionContract(contract)} />
+                      </div>
+                    </td>
+                    <td>{contract.roomId?.roomNumber || '-'}</td>
+                    <td>{formatDate(contract.startDate)} to {formatDate(contract.endDate)}</td>
+                    <td><StatusBadge value={contract.status} /></td>
+                    <td>{formatCurrency(contract.monthlyRent)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {contracts.length ? contracts.map((contract) => (
-                    <tr key={contract._id}>
-                      <td>{contract.tenantId?.fullName || '-'}</td>
-                      <td>{contract.roomId?.roomNumber || '-'}</td>
-                      <td>{formatDate(contract.startDate)} to {formatDate(contract.endDate)}</td>
-                      <td><StatusBadge value={contract.status} /></td>
-                      <td>{formatCurrency(contract.monthlyRent)}</td>
-                      <td className="row-actions">
-                        <button type="button" className="text-button dark" onClick={() => startEdit(contract)}>Edit</button>
-                        <button type="button" className="text-button danger" onClick={() => handleDelete(contract._id)}>Delete</button>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr><td colSpan="6" className="muted">No contracts yet.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                )) : (
+                  <tr><td colSpan="5" className="muted">No matching contracts.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-        <form className="panel-subsection form-grid" onSubmit={handleSubmit}>
-          <h3>{editingId ? 'Edit contract' : 'Create contract'}</h3>
+      <Modal open={formOpen} title={editingId ? 'Edit contract' : 'Create contract'} onClose={resetForm}>
+        <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             Tenant
             <select value={form.tenantId} onChange={(e) => setForm((prev) => ({ ...prev, tenantId: e.target.value }))} required>
@@ -200,15 +227,43 @@ export function AdminContractsPage() {
             <input value={form.contractImageUrl} onChange={(e) => setForm((prev) => ({ ...prev, contractImageUrl: e.target.value }))} />
           </label>
           <label>
+            Upload Contract File
+            <input type="file" accept="image/*,.pdf" onChange={handleContractFile} />
+          </label>
+          {form.contractImageUrl ? (
+            <a className="inline-link" href={form.contractImageUrl} target="_blank" rel="noreferrer">
+              Open contract attachment
+            </a>
+          ) : null}
+          <label>
             Note
             <textarea rows="4" value={form.note} onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))} />
           </label>
           <div className="button-row">
             <button className="button" disabled={saving}>{saving ? 'Saving...' : editingId ? 'Update contract' : 'Create contract'}</button>
-            {editingId ? <button type="button" className="button secondary" onClick={resetForm}>Cancel</button> : null}
+            <button type="button" className="button secondary" onClick={resetForm}>Cancel</button>
           </div>
         </form>
-      </div>
+      </Modal>
+      <ActionDialog
+        open={Boolean(actionContract)}
+        title={actionContract ? `${actionContract.tenantId?.fullName || 'Contract'} - ${actionContract.roomId?.roomNumber || 'Room'}` : 'Contract actions'}
+        description="Choose a contract action."
+        onClose={() => setActionContract(null)}
+        actions={[
+          {
+            label: 'Edit contract',
+            hint: 'Update terms',
+            onClick: () => startEdit(actionContract),
+          },
+          {
+            label: 'Delete contract',
+            hint: 'Remove contract',
+            variant: 'danger',
+            onClick: () => handleDelete(actionContract._id),
+          },
+        ]}
+      />
     </section>
   );
 }

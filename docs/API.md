@@ -61,6 +61,27 @@ GET /dashboard/tenant
 - `/dashboard/admin`: cần role `ADMIN`
 - `/dashboard/tenant`: cần role `TENANT`
 
+## Reports
+
+Các endpoint dưới đây cần role `ADMIN`:
+
+```http
+GET /reports/revenue?from=2026-01&to=2026-12
+```
+
+Response gồm `summary` và `rows` theo từng `billingMonth`, bao gồm billed, paid, unpaid, overdue, số invoice và số payment.
+
+## Audit
+
+Các endpoint dưới đây cần role `ADMIN`:
+
+```http
+GET /audit
+GET /audit?entityType=Invoice&action=UPDATE&limit=100
+```
+
+Audit log ghi lại các thao tác tạo, cập nhật, xóa, xác nhận thanh toán và tạo/cập nhật yêu cầu bảo trì.
+
 ## Rooms
 
 Các endpoint dưới đây cần role `ADMIN`:

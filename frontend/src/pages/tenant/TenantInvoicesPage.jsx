@@ -1,11 +1,16 @@
 import React from 'react';
 import { api } from '../../api/client.js';
+import { ListToolbar, useListView } from '../../components/ListTools.jsx';
 import { StatusBadge } from '../../components/StatusBadge.jsx';
 import { formatCurrency, formatDate } from '../../utils/format.js';
 
 export function TenantInvoicesPage() {
   const [invoices, setInvoices] = React.useState([]);
   const [error, setError] = React.useState('');
+  const listView = useListView(invoices, {
+    searchFields: ['billingMonth', 'roomId.roomNumber', 'status'],
+    statusField: 'status',
+  });
 
   React.useEffect(() => {
     let mounted = true;
@@ -27,6 +32,7 @@ export function TenantInvoicesPage() {
       <h2>My Invoices</h2>
       <p className="muted">Invoice history and payment status for your account.</p>
       {error ? <div className="error-box">{error}</div> : null}
+      <ListToolbar view={listView} searchPlaceholder="Search month, room, status..." />
       <div className="table-wrap">
         <table>
           <thead>
@@ -39,7 +45,7 @@ export function TenantInvoicesPage() {
             </tr>
           </thead>
           <tbody>
-            {invoices.length ? invoices.map((invoice) => (
+            {listView.items.length ? listView.items.map((invoice) => (
               <tr key={invoice._id}>
                 <td>{invoice.billingMonth}</td>
                 <td>{invoice.roomId?.roomNumber || '-'}</td>
@@ -47,7 +53,7 @@ export function TenantInvoicesPage() {
                 <td><StatusBadge value={invoice.status} /></td>
                 <td>{formatCurrency(invoice.totalAmount)}</td>
               </tr>
-            )) : <tr><td colSpan="5" className="muted">No invoices found.</td></tr>}
+            )) : <tr><td colSpan="5" className="muted">No matching invoices.</td></tr>}
           </tbody>
         </table>
       </div>

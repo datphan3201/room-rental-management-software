@@ -1,5 +1,8 @@
 import React from 'react';
 import { api } from '../../api/client.js';
+import { ActionButton, ActionDialog } from '../../components/ActionDialog.jsx';
+import { ListToolbar, useListView } from '../../components/ListTools.jsx';
+import { Modal } from '../../components/Modal.jsx';
 import { StatusBadge } from '../../components/StatusBadge.jsx';
 import { formatDate, formatCurrency } from '../../utils/format.js';
 
@@ -17,6 +20,12 @@ export function AdminMaintenancePage() {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [reviewOpen, setReviewOpen] = React.useState(false);
+  const [actionRequest, setActionRequest] = React.useState(null);
+  const listView = useListView(requests, {
+    searchFields: ['title', 'tenantId.fullName', 'roomId.roomNumber', 'status', 'responseNote'],
+    statusField: 'status',
+  });
 
   async function loadData() {
     setLoading(true);
@@ -37,6 +46,7 @@ export function AdminMaintenancePage() {
 
   function startEdit(request) {
     setSelectedId(request._id);
+    setReviewOpen(true);
     setForm({
       status: request.status || 'Pending Review',
       responseNote: request.responseNote || '',
@@ -48,6 +58,7 @@ export function AdminMaintenancePage() {
   function resetForm() {
     setSelectedId('');
     setForm(emptyMaintenance);
+    setReviewOpen(false);
   }
 
   async function handleSubmit(event) {
@@ -80,43 +91,44 @@ export function AdminMaintenancePage() {
 
       {error ? <div className="error-box">{error}</div> : null}
 
-      <div className="grid-two">
-        <div className="panel-subsection">
-          <h3>Requests</h3>
-          {loading ? <p className="muted">Loading...</p> : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Tenant</th>
-                    <th>Room</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Action</th>
+      <div className="panel-subsection">
+        <h3>Requests</h3>
+        <ListToolbar view={listView} searchPlaceholder="Search request, tenant, room..." />
+        {loading ? <p className="muted">Loading...</p> : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Tenant</th>
+                  <th>Room</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {listView.items.length ? listView.items.map((request) => (
+                  <tr key={request._id}>
+                    <td>
+                      <div className="record-primary">
+                        <strong>{request.title}</strong>
+                        <ActionButton onClick={() => setActionRequest(request)} />
+                      </div>
+                    </td>
+                    <td>{request.tenantId?.fullName || '-'}</td>
+                    <td>{request.roomId?.roomNumber || '-'}</td>
+                    <td><StatusBadge value={request.status} /></td>
+                    <td>{formatDate(request.createdAt)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {requests.length ? requests.map((request) => (
-                    <tr key={request._id}>
-                      <td>{request.title}</td>
-                      <td>{request.tenantId?.fullName || '-'}</td>
-                      <td>{request.roomId?.roomNumber || '-'}</td>
-                      <td><StatusBadge value={request.status} /></td>
-                      <td>{formatDate(request.createdAt)}</td>
-                      <td className="row-actions">
-                        <button type="button" className="text-button dark" onClick={() => startEdit(request)}>Review</button>
-                      </td>
-                    </tr>
-                  )) : <tr><td colSpan="6" className="muted">No requests yet.</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                )) : <tr><td colSpan="5" className="muted">No matching requests.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-        <form className="panel-subsection form-grid" onSubmit={handleSubmit}>
-          <h3>{selectedId ? 'Review request' : 'Select a request'}</h3>
+      <Modal open={reviewOpen} title="Review request" onClose={resetForm}>
+        <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             Status
             <select value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}>
@@ -145,14 +157,27 @@ export function AdminMaintenancePage() {
           </div>
           <div className="button-row">
             <button className="button" disabled={saving || !selectedId}>{saving ? 'Saving...' : 'Update request'}</button>
-            <button type="button" className="button secondary" onClick={resetForm}>Reset</button>
+            <button type="button" className="button secondary" onClick={resetForm}>Cancel</button>
           </div>
           <div className="panel-subsection">
             <div className="muted">Resolved cost preview</div>
             <strong>{formatCurrency(form.maintenanceCost || 0)}</strong>
           </div>
         </form>
-      </div>
+      </Modal>
+      <ActionDialog
+        open={Boolean(actionRequest)}
+        title={actionRequest ? actionRequest.title : 'Maintenance actions'}
+        description="Choose a maintenance action."
+        onClose={() => setActionRequest(null)}
+        actions={[
+          {
+            label: 'Review request',
+            hint: 'Update status and response',
+            onClick: () => startEdit(actionRequest),
+          },
+        ]}
+      />
     </section>
   );
 }

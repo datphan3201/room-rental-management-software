@@ -1,5 +1,8 @@
 import React from 'react';
 import { api } from '../../api/client.js';
+import { ActionButton, ActionDialog } from '../../components/ActionDialog.jsx';
+import { ListToolbar, useListView } from '../../components/ListTools.jsx';
+import { Modal } from '../../components/Modal.jsx';
 
 const emptyTenant = {
   fullName: '',
@@ -23,6 +26,11 @@ export function AdminTenantsPage() {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [formOpen, setFormOpen] = React.useState(false);
+  const [actionTenant, setActionTenant] = React.useState(null);
+  const listView = useListView(tenants, {
+    searchFields: ['fullName', 'phone', 'email', 'identityNumber', 'hometown'],
+  });
 
   async function loadTenants() {
     setLoading(true);
@@ -43,6 +51,7 @@ export function AdminTenantsPage() {
 
   function startEdit(tenant) {
     setEditingId(tenant._id);
+    setFormOpen(true);
     setForm({
       fullName: tenant.fullName || '',
       phone: tenant.phone || '',
@@ -57,6 +66,13 @@ export function AdminTenantsPage() {
   function resetForm() {
     setEditingId(null);
     setForm(emptyTenant);
+    setFormOpen(false);
+  }
+
+  function startCreate() {
+    setEditingId(null);
+    setForm(emptyTenant);
+    setFormOpen(true);
   }
 
   async function handleSubmit(event) {
@@ -101,67 +117,63 @@ export function AdminTenantsPage() {
           <h2>Tenants</h2>
           <p className="muted">Admin CRUD for tenant accounts and profiles.</p>
         </div>
-        <button type="button" className="button secondary" onClick={resetForm}>
+        <button type="button" className="button secondary" onClick={startCreate}>
           New tenant
         </button>
       </div>
 
       {error ? <div className="error-box">{error}</div> : null}
 
-      <div className="grid-two">
-        <div className="panel-subsection">
-          <h3>Tenant list</h3>
-          {loading ? (
-            <p className="muted">Loading...</p>
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Phone</th>
-                    <th>Email</th>
-                    <th>Identity</th>
-                    <th>DOB</th>
-                    <th>Hometown</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tenants.length ? (
-                    tenants.map((tenant) => (
-                      <tr key={tenant._id}>
-                        <td>{tenant.fullName}</td>
-                        <td>{tenant.phone}</td>
-                        <td>{tenant.email || '-'}</td>
-                        <td>{tenant.identityNumber}</td>
-                        <td>{formatDate(tenant.dateOfBirth)}</td>
-                        <td>{tenant.hometown}</td>
-                        <td className="row-actions">
-                          <button type="button" className="text-button dark" onClick={() => startEdit(tenant)}>
-                            Edit
-                          </button>
-                          <button type="button" className="text-button danger" onClick={() => handleDelete(tenant._id)}>
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="7" className="muted">
-                        No tenants yet.
+      <div className="panel-subsection">
+        <h3>Tenant list</h3>
+        <ListToolbar view={listView} searchPlaceholder="Search name, phone, identity..." />
+        {loading ? (
+          <p className="muted">Loading...</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>Identity</th>
+                  <th>DOB</th>
+                  <th>Hometown</th>
+                </tr>
+              </thead>
+              <tbody>
+                {listView.items.length ? (
+                  listView.items.map((tenant) => (
+                    <tr key={tenant._id}>
+                      <td>
+                        <div className="record-primary">
+                          <strong>{tenant.fullName}</strong>
+                          <ActionButton onClick={() => setActionTenant(tenant)} />
+                        </div>
                       </td>
+                      <td>{tenant.phone}</td>
+                      <td>{tenant.email || '-'}</td>
+                      <td>{tenant.identityNumber}</td>
+                      <td>{formatDate(tenant.dateOfBirth)}</td>
+                      <td>{tenant.hometown}</td>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="muted">
+                      No matching tenants.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-        <form className="panel-subsection form-grid" onSubmit={handleSubmit}>
-          <h3>{editingId ? 'Edit tenant' : 'Create tenant'}</h3>
+      <Modal open={formOpen} title={editingId ? 'Edit tenant' : 'Create tenant'} onClose={resetForm}>
+        <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             Full Name
             <input
@@ -223,14 +235,31 @@ export function AdminTenantsPage() {
             <button type="submit" className="button" disabled={saving}>
               {saving ? 'Saving...' : editingId ? 'Update tenant' : 'Create tenant'}
             </button>
-            {editingId ? (
-              <button type="button" className="button secondary" onClick={resetForm}>
-                Cancel
-              </button>
-            ) : null}
+            <button type="button" className="button secondary" onClick={resetForm}>
+              Cancel
+            </button>
           </div>
         </form>
-      </div>
+      </Modal>
+      <ActionDialog
+        open={Boolean(actionTenant)}
+        title={actionTenant ? actionTenant.fullName : 'Tenant actions'}
+        description="Choose a tenant action."
+        onClose={() => setActionTenant(null)}
+        actions={[
+          {
+            label: 'Edit tenant',
+            hint: 'Update profile',
+            onClick: () => startEdit(actionTenant),
+          },
+          {
+            label: 'Delete tenant',
+            hint: 'Remove tenant',
+            variant: 'danger',
+            onClick: () => handleDelete(actionTenant._id),
+          },
+        ]}
+      />
     </section>
   );
 }

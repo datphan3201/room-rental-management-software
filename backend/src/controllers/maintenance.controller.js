@@ -5,6 +5,7 @@ import {
   getMaintenanceRequestsForTenant,
   updateMaintenanceRequestById,
 } from '../services/maintenance.service.js';
+import { writeAuditLog } from '../services/audit.service.js';
 
 export async function listMaintenanceRequests(req, res) {
   const requests = await getMaintenanceRequests();
@@ -23,6 +24,13 @@ export async function createMaintenance(req, res) {
           ...req.body,
         })
       : await createMaintenanceRequestForAccount(req.user.sub, req.body);
+    await writeAuditLog({
+      actorId: req.user.sub,
+      action: 'CREATE',
+      entityType: 'MaintenanceRequest',
+      entityId: request._id,
+      summary: `Created maintenance request ${request.title}`,
+    });
     return res.status(201).json({ data: request });
   } catch (error) {
     return res.status(400).json({ message: error.message });
@@ -32,6 +40,13 @@ export async function createMaintenance(req, res) {
 export async function updateMaintenance(req, res) {
   try {
     const request = await updateMaintenanceRequestById(req.params.id, req.body);
+    await writeAuditLog({
+      actorId: req.user.sub,
+      action: 'UPDATE',
+      entityType: 'MaintenanceRequest',
+      entityId: request._id,
+      summary: `Updated maintenance request to ${request.status}`,
+    });
     return res.json({ data: request });
   } catch (error) {
     const status = error.message === 'Maintenance request not found' ? 404 : 400;
