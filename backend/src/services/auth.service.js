@@ -70,3 +70,43 @@ export async function getAuthProfile(accountId) {
       : null,
   };
 }
+
+export async function changePassword(accountId, { currentPassword, newPassword }) {
+  const account = await Account.findById(accountId);
+  if (!account || (account.status && account.status !== 'ACTIVE')) {
+    throw new Error('Account not found');
+  }
+  const valid = await bcrypt.compare(String(currentPassword || ''), account.passwordHash);
+  if (!valid) {
+    throw new Error('Current password is incorrect');
+  }
+  const normalizedNewPassword = String(newPassword || '').trim();
+  if (normalizedNewPassword.length < 6) {
+    throw new Error('New password must be at least 6 characters');
+  }
+  account.passwordHash = await bcrypt.hash(normalizedNewPassword, 10);
+  await account.save();
+  return { changed: true };
+}
+
+export async function resetPasswordWithTenantIdentity({ loginId, identityNumber, newPassword }) {
+  const normalizedLoginId = String(loginId || '').trim();
+  const normalizedIdentity = String(identityNumber || '').trim();
+  const normalizedNewPassword = String(newPassword || '').trim();
+  if (!normalizedLoginId || !normalizedIdentity || normalizedNewPassword.length < 6) {
+    throw new Error('Login ID, identity number, and a 6-character password are required');
+  }
+
+  const account = await Account.findOne({ phone: normalizedLoginId, role: 'TENANT', status: 'ACTIVE' });
+  if (!account) {
+    throw new Error('Tenant account not found');
+  }
+  const tenant = await Tenant.findOne({ accountId: account._id, identityNumber: normalizedIdentity }).lean();
+  if (!tenant) {
+    throw new Error('Tenant identity does not match');
+  }
+
+  account.passwordHash = await bcrypt.hash(normalizedNewPassword, 10);
+  await account.save();
+  return { reset: true };
+}

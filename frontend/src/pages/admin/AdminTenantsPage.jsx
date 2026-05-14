@@ -11,7 +11,6 @@ const emptyTenant = {
   identityNumber: '',
   dateOfBirth: '',
   hometown: '',
-  password: '',
 };
 
 function formatDate(value) {
@@ -59,7 +58,6 @@ export function AdminTenantsPage() {
       identityNumber: tenant.identityNumber || '',
       dateOfBirth: formatDate(tenant.dateOfBirth),
       hometown: tenant.hometown || '',
-      password: '',
     });
   }
 
@@ -81,9 +79,6 @@ export function AdminTenantsPage() {
     setError('');
     try {
       const payload = { ...form };
-      if (editingId && !payload.password) {
-        delete payload.password;
-      }
       if (editingId) {
         await api.put(`/tenants/${editingId}`, payload);
       } else {
@@ -99,7 +94,7 @@ export function AdminTenantsPage() {
   }
 
   async function handleDelete(id) {
-    if (!window.confirm('Delete this tenant?')) return;
+    if (!window.confirm('Delete?')) return;
     setError('');
     try {
       await api.delete(`/tenants/${id}`);
@@ -115,10 +110,9 @@ export function AdminTenantsPage() {
       <div className="panel-header">
         <div>
           <h2>Tenants</h2>
-          <p className="muted">Admin CRUD for tenant accounts and profiles.</p>
         </div>
         <button type="button" className="button secondary" onClick={startCreate}>
-          New tenant
+          New
         </button>
       </div>
 
@@ -140,6 +134,7 @@ export function AdminTenantsPage() {
                   <th>Identity</th>
                   <th>DOB</th>
                   <th>Hometown</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -149,7 +144,6 @@ export function AdminTenantsPage() {
                       <td>
                         <div className="record-primary">
                           <strong>{tenant.fullName}</strong>
-                          <ActionButton onClick={() => setActionTenant(tenant)} />
                         </div>
                       </td>
                       <td>{tenant.phone}</td>
@@ -157,11 +151,12 @@ export function AdminTenantsPage() {
                       <td>{tenant.identityNumber}</td>
                       <td>{formatDate(tenant.dateOfBirth)}</td>
                       <td>{tenant.hometown}</td>
+                      <td className="row-action-cell"><ActionButton onClick={() => setActionTenant(tenant)} /></td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="6" className="muted">
+                    <td colSpan="7" className="muted">
                       No matching tenants.
                     </td>
                   </tr>
@@ -172,7 +167,7 @@ export function AdminTenantsPage() {
         )}
       </div>
 
-      <Modal open={formOpen} title={editingId ? 'Edit tenant' : 'Create tenant'} onClose={resetForm}>
+      <Modal open={formOpen} title={editingId ? 'Edit' : 'Create'} onClose={resetForm}>
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             Full Name
@@ -222,18 +217,9 @@ export function AdminTenantsPage() {
               required
             />
           </label>
-          <label>
-            Password {editingId ? '(leave blank to keep current)' : ''}
-            <input
-              type="password"
-              value={form.password}
-              onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
-              required={!editingId}
-            />
-          </label>
           <div className="button-row">
             <button type="submit" className="button" disabled={saving}>
-              {saving ? 'Saving...' : editingId ? 'Update tenant' : 'Create tenant'}
+              {saving ? 'Saving...' : editingId ? 'Update' : 'Create'}
             </button>
             <button type="button" className="button secondary" onClick={resetForm}>
               Cancel
@@ -244,17 +230,14 @@ export function AdminTenantsPage() {
       <ActionDialog
         open={Boolean(actionTenant)}
         title={actionTenant ? actionTenant.fullName : 'Tenant actions'}
-        description="Choose a tenant action."
         onClose={() => setActionTenant(null)}
         actions={[
           {
-            label: 'Edit tenant',
-            hint: 'Update profile',
+            label: 'Edit',
             onClick: () => startEdit(actionTenant),
           },
           {
-            label: 'Delete tenant',
-            hint: 'Remove tenant',
+            label: 'Delete',
             variant: 'danger',
             onClick: () => handleDelete(actionTenant._id),
           },

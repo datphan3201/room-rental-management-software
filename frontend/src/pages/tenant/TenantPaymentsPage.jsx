@@ -28,7 +28,6 @@ export function TenantPaymentsPage() {
   return (
     <section className="panel wide">
       <h2>My Payments</h2>
-      <p className="muted">Confirmed payment history entered by the admin.</p>
       {error ? <div className="error-box">{error}</div> : null}
       <ListToolbar view={listView} searchPlaceholder="Search invoice, method, note..." />
       <div className="table-wrap">

@@ -120,7 +120,7 @@ export function AdminContractsPage() {
   }
 
   async function handleDelete(id) {
-    if (!window.confirm('Delete this contract?')) return;
+    if (!window.confirm('Delete?')) return;
     try {
       await api.delete(`/contracts/${id}`);
       await loadData();
@@ -135,9 +135,8 @@ export function AdminContractsPage() {
       <div className="panel-header">
         <div>
           <h2>Contracts</h2>
-          <p className="muted">Manage contract metadata and room occupancy state.</p>
         </div>
-        <button type="button" className="button secondary" onClick={startCreate}>New contract</button>
+        <button type="button" className="button secondary" onClick={startCreate}>New</button>
       </div>
 
       {error ? <div className="error-box">{error}</div> : null}
@@ -157,6 +156,7 @@ export function AdminContractsPage() {
                   <th>Period</th>
                   <th>Status</th>
                   <th>Rent</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -165,24 +165,22 @@ export function AdminContractsPage() {
                     <td>
                       <div className="record-primary">
                         <strong>{contract.tenantId?.fullName || '-'}</strong>
-                        <ActionButton onClick={() => setActionContract(contract)} />
                       </div>
                     </td>
                     <td>{contract.roomId?.roomNumber || '-'}</td>
                     <td>{formatDate(contract.startDate)} to {formatDate(contract.endDate)}</td>
                     <td><StatusBadge value={contract.status} /></td>
                     <td>{formatCurrency(contract.monthlyRent)}</td>
+                    <td className="row-action-cell"><ActionButton onClick={() => setActionContract(contract)} /></td>
                   </tr>
-                )) : (
-                  <tr><td colSpan="5" className="muted">No matching contracts.</td></tr>
-                )}
+                )) : <tr><td colSpan="6" className="muted">No matching contracts.</td></tr>}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      <Modal open={formOpen} title={editingId ? 'Edit contract' : 'Create contract'} onClose={resetForm}>
+      <Modal open={formOpen} title={editingId ? 'Edit' : 'Create'} onClose={resetForm}>
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             Tenant
@@ -240,7 +238,7 @@ export function AdminContractsPage() {
             <textarea rows="4" value={form.note} onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))} />
           </label>
           <div className="button-row">
-            <button className="button" disabled={saving}>{saving ? 'Saving...' : editingId ? 'Update contract' : 'Create contract'}</button>
+            <button className="button" disabled={saving}>{saving ? 'Saving...' : editingId ? 'Update' : 'Create'}</button>
             <button type="button" className="button secondary" onClick={resetForm}>Cancel</button>
           </div>
         </form>
@@ -248,17 +246,14 @@ export function AdminContractsPage() {
       <ActionDialog
         open={Boolean(actionContract)}
         title={actionContract ? `${actionContract.tenantId?.fullName || 'Contract'} - ${actionContract.roomId?.roomNumber || 'Room'}` : 'Contract actions'}
-        description="Choose a contract action."
         onClose={() => setActionContract(null)}
         actions={[
           {
-            label: 'Edit contract',
-            hint: 'Update terms',
+            label: 'Edit',
             onClick: () => startEdit(actionContract),
           },
           {
-            label: 'Delete contract',
-            hint: 'Remove contract',
+            label: 'Delete',
             variant: 'danger',
             onClick: () => handleDelete(actionContract._id),
           },

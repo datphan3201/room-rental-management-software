@@ -196,9 +196,8 @@ export function AdminInvoicesPage() {
       <div className="panel-header">
         <div>
           <h2>Invoices</h2>
-          <p className="muted">Create monthly invoices and keep billing rules in one place.</p>
         </div>
-        <button type="button" className="button secondary" onClick={startCreate}>New invoice</button>
+        <button type="button" className="button secondary" onClick={startCreate}>New</button>
       </div>
 
       {error ? <div className="error-box">{error}</div> : null}
@@ -211,35 +210,40 @@ export function AdminInvoicesPage() {
             <table>
               <thead>
                 <tr>
+                  <th>Status</th>
+                  <th>Updated</th>
                   <th>Month</th>
                   <th>Tenant</th>
                   <th>Room</th>
-                  <th>Status</th>
                   <th>Total</th>
+                  <th>Due</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {listView.items.length ? listView.items.map((invoice) => (
                   <tr key={invoice._id}>
+                    <td><StatusBadge value={invoice.status} /></td>
+                    <td>{formatDate(invoice.statusUpdatedAt || invoice.updatedAt)}</td>
                     <td>
                       <div className="record-primary">
                         <strong>{invoice.billingMonth}</strong>
-                        <ActionButton onClick={() => setActionInvoice(invoice)} />
                       </div>
                     </td>
                     <td>{invoice.tenantId?.fullName || '-'}</td>
                     <td>{invoice.roomId?.roomNumber || '-'}</td>
-                    <td><StatusBadge value={invoice.status} /></td>
                     <td>{formatCurrency(invoice.totalAmount)}</td>
+                    <td>{formatDate(invoice.dueDate)}</td>
+                    <td className="row-action-cell"><ActionButton onClick={() => setActionInvoice(invoice)} /></td>
                   </tr>
-                )) : <tr><td colSpan="5" className="muted">No matching invoices.</td></tr>}
+                )) : <tr><td colSpan="8" className="muted">No matching invoices.</td></tr>}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      <Modal open={formOpen} title={editingId ? 'Edit invoice' : 'Create invoice'} onClose={resetForm}>
+      <Modal open={formOpen} title={editingId ? 'Edit' : 'Create'} onClose={resetForm}>
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             Contract
@@ -320,7 +324,7 @@ export function AdminInvoicesPage() {
             <strong>{formatCurrency(totalPreview)}</strong>
           </div>
           <div className="button-row">
-            <button className="button" disabled={saving}>{saving ? 'Saving...' : editingId ? 'Update invoice' : 'Create invoice'}</button>
+            <button className="button" disabled={saving}>{saving ? 'Saving...' : editingId ? 'Update' : 'Create'}</button>
             <button type="button" className="button secondary" onClick={resetForm}>Cancel</button>
           </div>
         </form>
@@ -328,17 +332,14 @@ export function AdminInvoicesPage() {
       <ActionDialog
         open={Boolean(actionInvoice)}
         title={actionInvoice ? `Invoice ${actionInvoice.billingMonth}` : 'Invoice actions'}
-        description="Choose an invoice action."
         onClose={() => setActionInvoice(null)}
         actions={[
           {
-            label: 'Edit invoice',
-            hint: 'Update billing data',
+            label: 'Edit',
             onClick: () => startEdit(actionInvoice),
           },
           {
             label: 'Print/PDF',
-            hint: 'Open printable invoice',
             onClick: () => printInvoice(actionInvoice),
           },
         ]}

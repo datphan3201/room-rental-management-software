@@ -12,6 +12,11 @@ import { confirmPayment } from '../src/services/payment.service.js';
 import { createMaintenanceRequestForAccount } from '../src/services/maintenance.service.js';
 import { getRevenueReport } from '../src/services/report.service.js';
 import { getAuditLogs, writeAuditLog } from '../src/services/audit.service.js';
+import {
+  createAnnouncement,
+  getPinnedAnnouncements,
+  updateAnnouncementById,
+} from '../src/services/announcement.service.js';
 
 process.env.NODE_ENV = 'test';
 
@@ -139,4 +144,20 @@ test('audit log stores and returns recent events', async () => {
   assert.equal(log.action, 'TEST');
   assert.equal(log.summary, 'Recorded test audit event');
   assert.equal(log.actorId.username, 'admin');
+});
+
+test('pinned announcements are visible to dashboard readers', async () => {
+  const adminAuth = await loginWithCredentials({ loginId: 'admin', password: 'admin123' });
+  const announcement = await createAnnouncement({
+    title: 'Parking area cleaning',
+    content: 'Please move motorbikes out of the parking area before 07:00 tomorrow.',
+    isPinned: true,
+  }, adminAuth.user.id);
+
+  const pinned = await getPinnedAnnouncements();
+  assert.ok(pinned.some((item) => String(item._id) === String(announcement._id)));
+
+  await updateAnnouncementById(announcement._id, { isPinned: false }, adminAuth.user.id);
+  const afterUnpin = await getPinnedAnnouncements();
+  assert.ok(!afterUnpin.some((item) => String(item._id) === String(announcement._id)));
 });

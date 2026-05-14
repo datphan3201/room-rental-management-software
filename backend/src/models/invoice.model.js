@@ -22,6 +22,10 @@ const invoiceSchema = new mongoose.Schema(
     totalAmount: { type: Number, required: true, min: 0 },
     dueDate: { type: Date, required: true },
     status: { type: String, enum: ['Unpaid', 'Overdue', 'Cancelled', 'Paid'], default: 'Unpaid' },
+    statusUpdatedAt: { type: Date, default: Date.now },
+    paymentProofImageUrl: { type: String, default: '' },
+    paymentProofNote: { type: String, default: '' },
+    paymentProofUploadedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

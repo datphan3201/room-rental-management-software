@@ -14,7 +14,6 @@ function normalizeTenantPayload(data) {
     identityNumber: String(data.identityNumber || '').trim(),
     dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
     hometown: String(data.hometown || '').trim(),
-    password: String(data.password || ''),
   };
 }
 
@@ -47,7 +46,7 @@ export async function createTenantWithAccount(data) {
 
   const account = await Account.create({
     phone: payload.phone,
-    passwordHash: await bcrypt.hash(payload.password || 'tenant123', 10),
+    passwordHash: await bcrypt.hash('tenant123', 10),
     role: 'TENANT',
     status: 'ACTIVE',
   });
@@ -102,7 +101,6 @@ export async function updateTenantById(id, data) {
 
   await Account.findByIdAndUpdate(tenant.accountId, {
     phone: payload.phone,
-    ...(payload.password ? { passwordHash: await bcrypt.hash(payload.password, 10) } : {}),
   }, { new: true });
 
   return Tenant.findById(id).populate('accountId', 'username phone role status').lean();

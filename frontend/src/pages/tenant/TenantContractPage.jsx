@@ -30,7 +30,6 @@ export function TenantContractPage() {
   return (
     <section className="panel wide">
       <h2>My Contract</h2>
-      <p className="muted">View your own active and historical rental contracts.</p>
       {error ? <div className="error-box">{error}</div> : null}
       <ListToolbar view={listView} searchPlaceholder="Search room, status, note..." />
       <div className="table-wrap">

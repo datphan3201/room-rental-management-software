@@ -34,7 +34,6 @@ export function AdminAuditPage() {
       <div className="panel-header">
         <div>
           <h2>Audit Log</h2>
-          <p className="muted">Review recent administrative actions and tenant maintenance submissions.</p>
         </div>
         <button type="button" className="button secondary" onClick={loadLogs}>Refresh</button>
       </div>

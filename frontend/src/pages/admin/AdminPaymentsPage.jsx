@@ -13,25 +13,49 @@ const emptyPayment = {
   note: '',
 };
 
+const emptySettings = {
+  bankName: '',
+  accountName: '',
+  accountNumber: '',
+  qrImageUrl: '',
+};
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 export function AdminPaymentsPage() {
   const [payments, setPayments] = React.useState([]);
   const [invoices, setInvoices] = React.useState([]);
+  const [settings, setSettings] = React.useState(emptySettings);
   const [form, setForm] = React.useState(emptyPayment);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
   const [formOpen, setFormOpen] = React.useState(false);
+  const [paymentView, setPaymentView] = React.useState('history');
   const listView = useListView(payments, {
     searchFields: ['invoiceId.billingMonth', 'tenantId.fullName', 'method', 'note'],
   });
+  const proofInvoices = invoices.filter((invoice) => invoice.paymentProofImageUrl && invoice.status !== 'Paid');
 
   async function loadData() {
     setLoading(true);
     setError('');
     try {
-      const [paymentsRes, invoicesRes] = await Promise.all([api.get('/payments'), api.get('/invoices')]);
+      const [paymentsRes, invoicesRes, settingsRes] = await Promise.all([
+        api.get('/payments'),
+        api.get('/invoices'),
+        api.get('/payment-settings'),
+      ]);
       setPayments(paymentsRes.data.data || []);
       setInvoices(invoicesRes.data.data || []);
+      setSettings(settingsRes.data.data || emptySettings);
     } catch (requestError) {
       setError(requestError?.response?.data?.message || 'Failed to load payments');
     } finally {
@@ -82,50 +106,151 @@ export function AdminPaymentsPage() {
     }
   }
 
+  async function handleSettingsSubmit(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      const { data } = await api.put('/payment-settings', settings);
+      setSettings(data.data || emptySettings);
+    } catch (requestError) {
+      setError(requestError?.response?.data?.message || 'Failed to save payment settings');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleQrUpload(event) {
+    const [file] = event.target.files || [];
+    if (!file) return;
+    const dataUrl = await readFileAsDataUrl(file);
+    setSettings((prev) => ({ ...prev, qrImageUrl: dataUrl }));
+  }
+
+  function startConfirmInvoice(invoice) {
+    setForm({
+      invoiceId: invoice._id,
+      tenantId: invoice.tenantId?._id || '',
+      amount: invoice.totalAmount || 0,
+      paymentDate: formatDate(new Date()),
+      method: 'Bank Transfer',
+      note: invoice.paymentProofNote || '',
+    });
+    setFormOpen(true);
+  }
+
   return (
     <section className="panel wide">
       <div className="panel-header">
         <div>
           <h2>Payments</h2>
-          <p className="muted">Manually confirm outside payments and mark invoices as paid.</p>
         </div>
-        <button type="button" className="button secondary" onClick={startConfirmPayment}>Confirm payment</button>
+        <button type="button" className="button secondary" onClick={startConfirmPayment}>Confirm</button>
       </div>
 
       {error ? <div className="error-box">{error}</div> : null}
 
+      <div className="panel-subsection payment-admin-grid">
+        <h3>Bank account</h3>
+        <form className="form-grid payment-settings-form" onSubmit={handleSettingsSubmit}>
+          <label>
+            Bank
+            <input value={settings.bankName} onChange={(event) => setSettings((prev) => ({ ...prev, bankName: event.target.value }))} />
+          </label>
+          <label>
+            Account name
+            <input value={settings.accountName} onChange={(event) => setSettings((prev) => ({ ...prev, accountName: event.target.value }))} />
+          </label>
+          <label>
+            Account number
+            <input value={settings.accountNumber} onChange={(event) => setSettings((prev) => ({ ...prev, accountNumber: event.target.value }))} />
+          </label>
+          <label>
+            QR image
+            <input type="file" accept="image/*" onChange={handleQrUpload} />
+          </label>
+          {settings.qrImageUrl ? <img className="qr-preview" src={settings.qrImageUrl} alt="Payment QR" /> : null}
+          <button className="button" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+        </form>
+      </div>
+
       <div className="panel-subsection">
-        <h3>Payment history</h3>
-        <ListToolbar view={listView} searchPlaceholder="Search invoice, tenant, method..." />
+        <div className="panel-header compact">
+          <h3>Payment history</h3>
+          <div className="view-switch" aria-label="Payment view">
+            <button type="button" className={paymentView === 'history' ? 'active' : ''} onClick={() => setPaymentView('history')}>
+              History
+            </button>
+            <button type="button" className={paymentView === 'proofs' ? 'active' : ''} onClick={() => setPaymentView('proofs')}>
+              Proofs
+            </button>
+          </div>
+        </div>
+        {paymentView === 'history' ? <ListToolbar view={listView} searchPlaceholder="Search invoice, tenant, method..." /> : null}
         {loading ? <p className="muted">Loading...</p> : (
           <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Invoice</th>
-                  <th>Tenant</th>
-                  <th>Amount</th>
-                  <th>Date</th>
-                  <th>Method</th>
-                </tr>
-              </thead>
-              <tbody>
-                {listView.items.length ? listView.items.map((payment) => (
-                  <tr key={payment._id}>
-                    <td>{payment.invoiceId?.billingMonth || '-'}</td>
-                    <td>{payment.tenantId?.fullName || '-'}</td>
-                    <td>{formatCurrency(payment.amount)}</td>
-                    <td>{formatDate(payment.paymentDate)}</td>
-                    <td>{payment.method}</td>
+            {paymentView === 'history' ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Invoice</th>
+                    <th>Tenant</th>
+                    <th>Date</th>
+                    <th>Method</th>
+                    <th>Amount</th>
+                    <th>Proof</th>
                   </tr>
-                )) : <tr><td colSpan="5" className="muted">No matching payments.</td></tr>}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {listView.items.length ? listView.items.map((payment) => (
+                    <tr key={payment._id}>
+                      <td>{payment.invoiceId?.billingMonth || '-'}</td>
+                      <td>{payment.tenantId?.fullName || '-'}</td>
+                      <td>{formatDate(payment.paymentDate)}</td>
+                      <td>{payment.method}</td>
+                      <td>{formatCurrency(payment.amount)}</td>
+                      <td>
+                        {payment.invoiceId?.paymentProofImageUrl ? (
+                          <a className="inline-link" href={payment.invoiceId.paymentProofImageUrl} target="_blank" rel="noreferrer">View</a>
+                        ) : '-'}
+                      </td>
+                    </tr>
+                  )) : <tr><td colSpan="6" className="muted">No matching payments.</td></tr>}
+                </tbody>
+              </table>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Invoice</th>
+                    <th>Tenant</th>
+                    <th>Uploaded</th>
+                    <th>Amount</th>
+                    <th>Receipt</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {proofInvoices.length ? proofInvoices.map((invoice) => (
+                    <tr key={invoice._id}>
+                      <td>{invoice.billingMonth}</td>
+                      <td>{invoice.tenantId?.fullName || '-'}</td>
+                      <td>{formatDate(invoice.paymentProofUploadedAt)}</td>
+                      <td>{formatCurrency(invoice.totalAmount)}</td>
+                      <td><a className="inline-link" href={invoice.paymentProofImageUrl} target="_blank" rel="noreferrer">View</a></td>
+                      <td className="row-action-cell">
+                        <button type="button" className="text-button dark" onClick={() => startConfirmInvoice(invoice)}>Confirm</button>
+                      </td>
+                    </tr>
+                  )) : <tr><td colSpan="6" className="muted">No pending proofs.</td></tr>}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
       </div>
 
-      <Modal open={formOpen} title="Confirm payment" onClose={resetForm}>
+      <Modal open={formOpen} title="Confirm" onClose={resetForm}>
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             Invoice
@@ -163,7 +288,7 @@ export function AdminPaymentsPage() {
             <textarea rows="4" value={form.note} onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))} />
           </label>
           <div className="button-row">
-            <button className="button" disabled={saving}>{saving ? 'Saving...' : 'Confirm payment'}</button>
+            <button className="button" disabled={saving}>{saving ? 'Saving...' : 'Confirm'}</button>
             <button type="button" className="button secondary" onClick={resetForm}>Cancel</button>
           </div>
         </form>

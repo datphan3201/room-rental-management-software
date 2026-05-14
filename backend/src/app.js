@@ -12,6 +12,8 @@ import maintenanceRoutes from './routes/maintenance.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import auditRoutes from './routes/audit.routes.js';
 import reportRoutes from './routes/report.routes.js';
+import announcementRoutes from './routes/announcement.routes.js';
+import paymentSettingsRoutes from './routes/paymentSettings.routes.js';
 
 const app = express();
 
@@ -53,6 +55,8 @@ app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/announcements', announcementRoutes);
+app.use('/api/payment-settings', paymentSettingsRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });

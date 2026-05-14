@@ -85,7 +85,6 @@ export function AdminMaintenancePage() {
       <div className="panel-header">
         <div>
           <h2>Maintenance</h2>
-          <p className="muted">Review tenant requests, accept or reject them, then resolve when done.</p>
         </div>
       </div>
 
@@ -104,6 +103,7 @@ export function AdminMaintenancePage() {
                   <th>Room</th>
                   <th>Status</th>
                   <th>Created</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -112,22 +112,22 @@ export function AdminMaintenancePage() {
                     <td>
                       <div className="record-primary">
                         <strong>{request.title}</strong>
-                        <ActionButton onClick={() => setActionRequest(request)} />
                       </div>
                     </td>
                     <td>{request.tenantId?.fullName || '-'}</td>
                     <td>{request.roomId?.roomNumber || '-'}</td>
                     <td><StatusBadge value={request.status} /></td>
                     <td>{formatDate(request.createdAt)}</td>
+                    <td className="row-action-cell"><ActionButton onClick={() => setActionRequest(request)} /></td>
                   </tr>
-                )) : <tr><td colSpan="5" className="muted">No matching requests.</td></tr>}
+                )) : <tr><td colSpan="6" className="muted">No matching requests.</td></tr>}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      <Modal open={reviewOpen} title="Review request" onClose={resetForm}>
+      <Modal open={reviewOpen} title="Review" onClose={resetForm}>
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             Status
@@ -156,7 +156,7 @@ export function AdminMaintenancePage() {
             <strong>{selectedId || 'None'}</strong>
           </div>
           <div className="button-row">
-            <button className="button" disabled={saving || !selectedId}>{saving ? 'Saving...' : 'Update request'}</button>
+            <button className="button" disabled={saving || !selectedId}>{saving ? 'Saving...' : 'Update'}</button>
             <button type="button" className="button secondary" onClick={resetForm}>Cancel</button>
           </div>
           <div className="panel-subsection">
@@ -168,12 +168,10 @@ export function AdminMaintenancePage() {
       <ActionDialog
         open={Boolean(actionRequest)}
         title={actionRequest ? actionRequest.title : 'Maintenance actions'}
-        description="Choose a maintenance action."
         onClose={() => setActionRequest(null)}
         actions={[
           {
-            label: 'Review request',
-            hint: 'Update status and response',
+            label: 'Review',
             onClick: () => startEdit(actionRequest),
           },
         ]}

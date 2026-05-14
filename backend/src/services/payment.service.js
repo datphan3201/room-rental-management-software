@@ -18,7 +18,7 @@ function paymentPayload(data) {
 
 export async function getPayments() {
   return Payment.find()
-    .populate('invoiceId', 'billingMonth status totalAmount')
+    .populate('invoiceId', 'billingMonth status totalAmount paymentProofImageUrl paymentProofNote paymentProofUploadedAt')
     .populate('tenantId', 'fullName phone')
     .populate('confirmedBy', 'username phone')
     .sort({ paymentDate: -1 })
@@ -31,7 +31,7 @@ export async function getPaymentsForTenant(accountId) {
     return [];
   }
   return Payment.find({ tenantId: tenant._id })
-    .populate('invoiceId', 'billingMonth status totalAmount')
+    .populate('invoiceId', 'billingMonth status totalAmount paymentProofImageUrl paymentProofNote paymentProofUploadedAt')
     .populate('tenantId', 'fullName phone')
     .populate('confirmedBy', 'username phone')
     .sort({ paymentDate: -1 })
@@ -71,6 +71,6 @@ export async function confirmPayment(data) {
   }
 
   const payment = await Payment.create(payload);
-  await Invoice.findByIdAndUpdate(payload.invoiceId, { status: 'Paid' }, { new: true });
+  await Invoice.findByIdAndUpdate(payload.invoiceId, { status: 'Paid', statusUpdatedAt: new Date() }, { new: true });
   return payment;
 }

@@ -71,9 +71,8 @@ export function TenantMaintenancePage() {
       <div className="panel-header">
         <div>
           <h2>My Maintenance</h2>
-          <p className="muted">Submit a request for your assigned room and track review status.</p>
         </div>
-        <button type="button" className="button secondary" onClick={() => setRequestOpen(true)}>New request</button>
+        <button type="button" className="button secondary" onClick={() => setRequestOpen(true)}>New</button>
       </div>
 
       {error ? <div className="error-box">{error}</div> : null}
@@ -105,7 +104,7 @@ export function TenantMaintenancePage() {
         </div>
       </div>
 
-      <Modal open={requestOpen} title="New maintenance request" onClose={() => setRequestOpen(false)}>
+      <Modal open={requestOpen} title="Create" onClose={() => setRequestOpen(false)}>
         <form className="form-grid" onSubmit={handleSubmit}>
           <label>
             Room
@@ -127,7 +126,7 @@ export function TenantMaintenancePage() {
             <textarea rows="5" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} required />
           </label>
           <div className="button-row">
-            <button className="button" disabled={saving}>{saving ? 'Submitting...' : 'Submit request'}</button>
+            <button className="button" disabled={saving}>{saving ? 'Submitting...' : 'Submit'}</button>
             <button type="button" className="button secondary" onClick={() => setRequestOpen(false)}>Cancel</button>
           </div>
           {loading ? <p className="muted">Loading...</p> : null}

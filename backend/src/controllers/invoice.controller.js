@@ -2,6 +2,7 @@ import {
   createInvoice,
   getInvoices,
   getInvoicesForTenant,
+  submitPaymentProofForTenant,
   updateInvoiceById,
 } from '../services/invoice.service.js';
 import { writeAuditLog } from '../services/audit.service.js';
@@ -43,6 +44,23 @@ export async function updateInvoice(req, res) {
       entityId: invoice._id,
       summary: `Updated invoice ${invoice.billingMonth}`,
       metadata: { status: invoice.status, totalAmount: invoice.totalAmount },
+    });
+    return res.json({ data: invoice });
+  } catch (error) {
+    const status = error.message === 'Invoice not found' ? 404 : 400;
+    return res.status(status).json({ message: error.message });
+  }
+}
+
+export async function submitPaymentProof(req, res) {
+  try {
+    const invoice = await submitPaymentProofForTenant(req.user.sub, req.params.id, req.body);
+    await writeAuditLog({
+      actorId: req.user.sub,
+      action: 'UPLOAD',
+      entityType: 'InvoicePaymentProof',
+      entityId: invoice._id,
+      summary: `Uploaded payment proof for invoice ${invoice.billingMonth}`,
     });
     return res.json({ data: invoice });
   } catch (error) {

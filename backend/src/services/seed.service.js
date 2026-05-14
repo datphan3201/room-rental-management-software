@@ -7,6 +7,8 @@ import { Invoice } from '../models/invoice.model.js';
 import { Payment } from '../models/payment.model.js';
 import { MaintenanceRequest } from '../models/maintenanceRequest.model.js';
 import { AuditLog } from '../models/auditLog.model.js';
+import { Announcement } from '../models/announcement.model.js';
+import { PaymentSettings } from '../models/paymentSettings.model.js';
 
 async function clearDemoData() {
   await Promise.all([
@@ -18,6 +20,8 @@ async function clearDemoData() {
     Payment.deleteMany({}),
     MaintenanceRequest.deleteMany({}),
     AuditLog.deleteMany({}),
+    Announcement.deleteMany({}),
+    PaymentSettings.deleteMany({}),
   ]);
 }
 
@@ -272,6 +276,23 @@ export async function seedDemoData({ reset = false } = {}) {
       maintenanceCost: 0,
     },
   ]);
+
+  await Announcement.create({
+    title: 'Water system maintenance this Sunday',
+    content: 'The landlord will inspect the water pump and rooftop tank from 08:00 to 10:00. Please store enough water before the maintenance window.',
+    isPinned: true,
+    pinnedAt: new Date(),
+    createdBy: admin._id,
+    updatedBy: admin._id,
+  });
+
+  await PaymentSettings.create({
+    bankName: 'Demo Bank',
+    accountName: 'Room Manager',
+    accountNumber: '0123456789',
+    qrImageUrl: '',
+    updatedBy: admin._id,
+  });
 
   await AuditLog.create([
     {

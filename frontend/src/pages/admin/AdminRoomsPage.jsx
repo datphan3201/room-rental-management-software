@@ -20,6 +20,11 @@ function formatCurrency(value) {
   }).format(Number(value || 0));
 }
 
+function formatDate(value) {
+  if (!value) return '-';
+  return new Date(value).toISOString().slice(0, 10);
+}
+
 function getEntityId(value) {
   return String(value?._id || value || '');
 }
@@ -28,6 +33,7 @@ export function AdminRoomsPage() {
   const [rooms, setRooms] = React.useState([]);
   const [contracts, setContracts] = React.useState([]);
   const [invoices, setInvoices] = React.useState([]);
+  const [maintenanceRequests, setMaintenanceRequests] = React.useState([]);
   const [form, setForm] = React.useState(emptyRoom);
   const [editingId, setEditingId] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
@@ -39,6 +45,7 @@ export function AdminRoomsPage() {
   const [roomFloor, setRoomFloor] = React.useState('');
   const [showRoomForm, setShowRoomForm] = React.useState(false);
   const [actionRoom, setActionRoom] = React.useState(null);
+  const [detailRoom, setDetailRoom] = React.useState(null);
 
   const roomFloors = React.useMemo(() => {
     return [...new Set(rooms.map((room) => room.floor).filter((floor) => floor !== null && floor !== undefined && floor !== ''))]
@@ -56,13 +63,18 @@ export function AdminRoomsPage() {
   }, [rooms, roomSearch, roomStatus, roomFloor]);
 
   const roomsByFloor = React.useMemo(() => {
-    return filteredRooms.reduce((groups, room) => {
-      const floor = room.floor === null || room.floor === undefined || room.floor === '' ? 'No floor' : `Floor ${room.floor}`;
-      const current = groups.get(floor) || [];
+    const groups = filteredRooms.reduce((result, room) => {
+      const floor = room.floor === null || room.floor === undefined || room.floor === '' ? 'No floor' : Number(room.floor);
+      const current = result.get(floor) || [];
       current.push(room);
-      groups.set(floor, current);
-      return groups;
+      result.set(floor, current);
+      return result;
     }, new Map());
+    return new Map([...groups.entries()].sort(([left], [right]) => {
+      if (left === 'No floor') return 1;
+      if (right === 'No floor') return -1;
+      return Number(left) - Number(right);
+    }));
   }, [filteredRooms]);
 
   function getRoomBoardInfo(room) {
@@ -99,18 +111,35 @@ export function AdminRoomsPage() {
     };
   }
 
+  function getRoomDetail(room) {
+    const activeContract = contracts.find((contract) => (
+      contract.status === 'Active' && getEntityId(contract.roomId) === String(room._id)
+    ));
+    const roomContracts = contracts.filter((contract) => getEntityId(contract.roomId) === String(room._id));
+    const roomInvoices = invoices.filter((invoice) => getEntityId(invoice.roomId) === String(room._id));
+    const roomMaintenance = maintenanceRequests.filter((request) => getEntityId(request.roomId) === String(room._id));
+    return {
+      activeContract,
+      roomContracts,
+      roomInvoices,
+      roomMaintenance,
+    };
+  }
+
   async function loadRooms() {
     setLoading(true);
     setError('');
     try {
-      const [roomsRes, contractsRes, invoicesRes] = await Promise.all([
+      const [roomsRes, contractsRes, invoicesRes, maintenanceRes] = await Promise.all([
         api.get('/rooms'),
         api.get('/contracts'),
         api.get('/invoices'),
+        api.get('/maintenance'),
       ]);
       setRooms(roomsRes.data.data || []);
       setContracts(contractsRes.data.data || []);
       setInvoices(invoicesRes.data.data || []);
+      setMaintenanceRequests(maintenanceRes.data.data || []);
     } catch (requestError) {
       setError(requestError?.response?.data?.message || 'Failed to load rooms');
     } finally {
@@ -174,7 +203,7 @@ export function AdminRoomsPage() {
   }
 
   async function handleDelete(id) {
-    if (!window.confirm('Delete this room?')) {
+    if (!window.confirm('Delete?')) {
       return;
     }
     setError('');
@@ -194,10 +223,9 @@ export function AdminRoomsPage() {
       <div className="panel-header">
         <div>
           <h2>Rooms</h2>
-          <p className="muted">Admin CRUD for room inventory and status control.</p>
         </div>
         <button type="button" className="button secondary" onClick={startCreate}>
-          New room
+          New
         </button>
       </div>
 
@@ -207,7 +235,6 @@ export function AdminRoomsPage() {
         <div className="panel-header compact">
           <div>
             <h3>Room Status</h3>
-            <p className="muted">Switch between board and list using the same search, filters, and actions.</p>
           </div>
           <div className="view-switch" aria-label="Room view mode">
             <button type="button" className={roomView === 'board' ? 'active' : ''} onClick={() => setRoomView('board')}>
@@ -259,7 +286,7 @@ export function AdminRoomsPage() {
             {[...roomsByFloor.entries()].map(([floor, floorRooms]) => (
               <section key={floor} className="floor-group">
                 <div className="floor-heading">
-                  <h4>{floor}</h4>
+                  <h4>{floor === 'No floor' ? floor : `Floor ${floor}`}</h4>
                   <span>{floorRooms.length} rooms</span>
                 </div>
                 <div className="room-card-grid">
@@ -270,6 +297,12 @@ export function AdminRoomsPage() {
                         <article
                           key={room._id}
                           className={`room-card room-card-${String(room.status || '').toLowerCase()}`}
+                          onClick={() => setDetailRoom(room)}
+                          role="button"
+                          tabIndex="0"
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') setDetailRoom(room);
+                          }}
                         >
                           <div className="room-card-topline">
                             <strong>{room.roomNumber}</strong>
@@ -289,7 +322,10 @@ export function AdminRoomsPage() {
                             </div>
                           </dl>
                           <div className="room-card-actions">
-                            <ActionButton onClick={() => setActionRoom(room)} />
+                            <ActionButton onClick={(event) => {
+                              event.stopPropagation();
+                              setActionRoom(room);
+                            }} />
                           </div>
                         </article>
                       );
@@ -310,17 +346,17 @@ export function AdminRoomsPage() {
                   <th>Type</th>
                   <th>Rent</th>
                   <th>Payment</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRooms.map((room) => {
                   const boardInfo = getRoomBoardInfo(room);
                   return (
-                    <tr key={room._id}>
+                    <tr key={room._id} className="clickable-row" onClick={() => setDetailRoom(room)}>
                       <td>
                         <div className="record-primary">
                           <strong>{room.roomNumber}</strong>
-                          <ActionButton onClick={() => setActionRoom(room)} />
                         </div>
                       </td>
                       <td>{room.floor}</td>
@@ -328,6 +364,12 @@ export function AdminRoomsPage() {
                       <td>{room.roomType}</td>
                       <td>{formatCurrency(room.monthlyRent)}</td>
                       <td><span className={`info-chip info-${boardInfo.paymentTone}`}>{boardInfo.paymentLabel}</span></td>
+                      <td className="row-action-cell">
+                        <ActionButton onClick={(event) => {
+                          event.stopPropagation();
+                          setActionRoom(room);
+                        }} />
+                      </td>
                     </tr>
                   );
                 })}
@@ -339,7 +381,7 @@ export function AdminRoomsPage() {
         )}
       </div>
 
-      <Modal open={showRoomForm} title={editingId ? 'Edit room' : 'Create room'} onClose={resetForm}>
+      <Modal open={showRoomForm} title={editingId ? 'Edit' : 'Create'} onClose={resetForm}>
         <div className="room-form-layout">
           <form className="form-grid" onSubmit={handleSubmit}>
             <label>
@@ -409,7 +451,7 @@ export function AdminRoomsPage() {
             </label>
             <div className="button-row">
               <button type="submit" className="button" disabled={saving}>
-                {saving ? 'Saving...' : editingId ? 'Update room' : 'Create room'}
+                {saving ? 'Saving...' : editingId ? 'Update' : 'Create'}
               </button>
               <button type="button" className="button secondary" onClick={resetForm}>
                 Cancel
@@ -418,20 +460,58 @@ export function AdminRoomsPage() {
           </form>
         </div>
       </Modal>
+      <Modal open={Boolean(detailRoom)} title={detailRoom ? `Room ${detailRoom.roomNumber}` : 'Room'} onClose={() => setDetailRoom(null)}>
+        {detailRoom ? (() => {
+          const detail = getRoomDetail(detailRoom);
+          return (
+            <div className="room-detail-layout">
+              <div className="room-summary-grid">
+                <div><span>Status</span><strong>{detailRoom.status}</strong></div>
+                <div><span>Floor</span><strong>{detailRoom.floor}</strong></div>
+                <div><span>Type</span><strong>{detailRoom.roomType}</strong></div>
+                <div><span>Rent</span><strong>{formatCurrency(detailRoom.monthlyRent)}</strong></div>
+              </div>
+              <div className="panel-subsection">
+                <h3>Active tenant</h3>
+                {detail.activeContract ? (
+                  <div className="detail-lines">
+                    <span><b>Tenant</b>{detail.activeContract.tenantId?.fullName || '-'}</span>
+                    <span><b>Phone</b>{detail.activeContract.tenantId?.phone || '-'}</span>
+                    <span><b>Contract</b>{formatDate(detail.activeContract.startDate)} to {formatDate(detail.activeContract.endDate)}</span>
+                  </div>
+                ) : <p className="muted">No active tenant.</p>}
+              </div>
+              <div className="panel-subsection">
+                <h3>Invoices</h3>
+                <div className="detail-lines">
+                  {detail.roomInvoices.length ? detail.roomInvoices.slice(0, 5).map((invoice) => (
+                    <span key={invoice._id}><b>{invoice.billingMonth}</b>{invoice.status} - {formatCurrency(invoice.totalAmount)}</span>
+                  )) : <span>No invoices.</span>}
+                </div>
+              </div>
+              <div className="panel-subsection">
+                <h3>Maintenance</h3>
+                <div className="detail-lines">
+                  {detail.roomMaintenance.length ? detail.roomMaintenance.slice(0, 5).map((request) => (
+                    <span key={request._id}><b>{request.status}</b>{request.title}</span>
+                  )) : <span>No maintenance requests.</span>}
+                </div>
+              </div>
+            </div>
+          );
+        })() : null}
+      </Modal>
       <ActionDialog
         open={Boolean(actionRoom)}
         title={actionRoom ? `Room ${actionRoom.roomNumber}` : 'Room actions'}
-        description="Choose a room action."
         onClose={() => setActionRoom(null)}
         actions={[
           {
-            label: 'Edit room',
-            hint: 'Update room information',
+            label: 'Edit',
             onClick: () => startEdit(actionRoom),
           },
           {
-            label: 'Delete room',
-            hint: 'Remove this room',
+            label: 'Delete',
             variant: 'danger',
             onClick: () => handleDelete(actionRoom._id),
           },

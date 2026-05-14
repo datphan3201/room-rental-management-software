@@ -4,8 +4,7 @@ import { Modal } from './Modal.jsx';
 export function ActionButton({ onClick, label = 'Actions' }) {
   return (
     <button type="button" className="action-trigger" onClick={onClick} aria-label={label}>
-      <span aria-hidden="true">...</span>
-      <span>{label}</span>
+      <span aria-hidden="true">⋯</span>
     </button>
   );
 }
@@ -15,7 +14,6 @@ export function ActionDialog({ open, title, description, actions = [], onClose }
 
   return (
     <Modal open={open} title={title} onClose={onClose} className="action-dialog">
-      {description ? <p className="muted action-dialog-description">{description}</p> : null}
       <div className="action-dialog-list">
         {visibleActions.map((action) => (
           <button
@@ -29,7 +27,6 @@ export function ActionDialog({ open, title, description, actions = [], onClose }
             }}
           >
             <span>{action.label}</span>
-            {action.hint ? <small>{action.hint}</small> : null}
           </button>
         ))}
       </div>

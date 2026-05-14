@@ -45,6 +45,7 @@ function invoicePayload(data) {
     totalAmount,
     dueDate: data.dueDate ? new Date(data.dueDate) : null,
     status: data.status || 'Unpaid',
+    statusUpdatedAt: data.statusUpdatedAt ? new Date(data.statusUpdatedAt) : null,
   };
 }
 
@@ -94,7 +95,7 @@ export async function getInvoices() {
     .populate('tenantId', 'fullName phone')
     .populate('roomId', 'roomNumber roomType')
     .populate('contractId', 'status startDate endDate')
-    .sort({ createdAt: -1 })
+    .sort({ statusUpdatedAt: -1, updatedAt: -1, createdAt: -1 })
     .lean();
 }
 
@@ -107,7 +108,7 @@ export async function getInvoicesForTenant(accountId) {
     .populate('tenantId', 'fullName phone')
     .populate('roomId', 'roomNumber roomType')
     .populate('contractId', 'status startDate endDate')
-    .sort({ createdAt: -1 })
+    .sort({ statusUpdatedAt: -1, updatedAt: -1, createdAt: -1 })
     .lean();
 }
 
@@ -117,6 +118,7 @@ export async function createInvoice(data) {
   if (payload.status === 'Paid') {
     throw new Error('Use payment confirmation to mark an invoice as Paid');
   }
+  payload.statusUpdatedAt = new Date();
   const contract = await Contract.findById(payload.contractId).lean();
   if (!contract) {
     throw new Error('Contract not found');
@@ -151,9 +153,11 @@ export async function updateInvoiceById(id, data) {
   if (payload.status === 'Paid' && current.status !== 'Paid') {
     throw new Error('Use payment confirmation to mark an invoice as Paid');
   }
+  const statusChanged = payload.status !== current.status;
   return Invoice.findByIdAndUpdate(id, {
     ...payload,
     dueDate: payload.dueDate || current.dueDate,
+    statusUpdatedAt: statusChanged ? new Date() : (current.statusUpdatedAt || current.updatedAt || current.createdAt),
   }, { new: true });
 }
 
@@ -162,5 +166,33 @@ export async function updateInvoiceStatusById(id, status) {
   if (!current) {
     throw new Error('Invoice not found');
   }
-  return Invoice.findByIdAndUpdate(id, { status }, { new: true });
+  return Invoice.findByIdAndUpdate(id, { status, statusUpdatedAt: new Date() }, { new: true });
+}
+
+export async function submitPaymentProofForTenant(accountId, invoiceId, data) {
+  const tenant = await Tenant.findOne({ accountId }).lean();
+  if (!tenant) {
+    throw new Error('Tenant not found');
+  }
+  const invoice = await Invoice.findOne({ _id: invoiceId, tenantId: tenant._id }).lean();
+  if (!invoice) {
+    throw new Error('Invoice not found');
+  }
+  if (invoice.status === 'Paid' || invoice.status === 'Cancelled') {
+    throw new Error('Payment proof can only be uploaded for unpaid invoices');
+  }
+
+  const paymentProofImageUrl = String(data.paymentProofImageUrl || '').trim();
+  if (!paymentProofImageUrl) {
+    throw new Error('Payment proof image is required');
+  }
+  if (!paymentProofImageUrl.startsWith('data:image/') && !/^https?:\/\//.test(paymentProofImageUrl)) {
+    throw new Error('Payment proof must be an image upload or URL');
+  }
+
+  return Invoice.findByIdAndUpdate(invoiceId, {
+    paymentProofImageUrl,
+    paymentProofNote: String(data.paymentProofNote || '').trim(),
+    paymentProofUploadedAt: new Date(),
+  }, { new: true });
 }
