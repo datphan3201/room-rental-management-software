@@ -17,6 +17,20 @@ function normalizeTenantPayload(data) {
   };
 }
 
+function normalizePassword(value, { required = false } = {}) {
+  const password = String(value || '').trim();
+  if (!password) {
+    if (required) {
+      throw new Error('Tenant password is required');
+    }
+    return null;
+  }
+  if (password.length < 6) {
+    throw new Error('Tenant password must be at least 6 characters');
+  }
+  return password;
+}
+
 export async function getTenants() {
   return Tenant.find()
     .populate('accountId', 'username phone role status')
@@ -30,6 +44,7 @@ export async function findTenantByAccountId(accountId) {
 
 export async function createTenantWithAccount(data) {
   const payload = normalizeTenantPayload(data);
+  const password = normalizePassword(data.password, { required: true });
 
   if (!payload.fullName || !payload.phone || !payload.identityNumber || !payload.dateOfBirth || !payload.hometown) {
     throw new Error('Missing required tenant fields');
@@ -46,7 +61,7 @@ export async function createTenantWithAccount(data) {
 
   const account = await Account.create({
     phone: payload.phone,
-    passwordHash: await bcrypt.hash('tenant123', 10),
+    passwordHash: await bcrypt.hash(password, 10),
     role: 'TENANT',
     status: 'ACTIVE',
   });
@@ -71,6 +86,7 @@ export async function createTenantWithAccount(data) {
 
 export async function updateTenantById(id, data) {
   const payload = normalizeTenantPayload(data);
+  const password = normalizePassword(data.password);
   const tenant = await Tenant.findById(id).lean();
   if (!tenant) {
     throw new Error('Tenant not found');
@@ -99,9 +115,14 @@ export async function updateTenantById(id, data) {
     hometown: payload.hometown,
   }, { new: true });
 
-  await Account.findByIdAndUpdate(tenant.accountId, {
+  const accountUpdates = {
     phone: payload.phone,
-  }, { new: true });
+  };
+  if (password) {
+    accountUpdates.passwordHash = await bcrypt.hash(password, 10);
+  }
+
+  await Account.findByIdAndUpdate(tenant.accountId, accountUpdates, { new: true });
 
   return Tenant.findById(id).populate('accountId', 'username phone role status').lean();
 }

@@ -7,6 +7,7 @@ import { Modal } from '../../components/Modal.jsx';
 const emptyTenant = {
   fullName: '',
   phone: '',
+  password: '',
   email: '',
   identityNumber: '',
   dateOfBirth: '',
@@ -54,6 +55,7 @@ export function AdminTenantsPage() {
     setForm({
       fullName: tenant.fullName || '',
       phone: tenant.phone || '',
+      password: '',
       email: tenant.email || '',
       identityNumber: tenant.identityNumber || '',
       dateOfBirth: formatDate(tenant.dateOfBirth),
@@ -78,7 +80,10 @@ export function AdminTenantsPage() {
     setSaving(true);
     setError('');
     try {
-      const payload = { ...form };
+      const payload = { ...form, password: form.password.trim() };
+      if (editingId && !payload.password) {
+        delete payload.password;
+      }
       if (editingId) {
         await api.put(`/tenants/${editingId}`, payload);
       } else {
@@ -193,6 +198,17 @@ export function AdminTenantsPage() {
             />
           </label>
           <label>
+            {editingId ? 'New Password' : 'Password'}
+            <input
+              type="password"
+              minLength="6"
+              value={form.password}
+              placeholder={editingId ? 'Leave blank to keep current password' : ''}
+              onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
+              required={!editingId}
+            />
+          </label>
+          <label>
             Identity Number
             <input
               value={form.identityNumber}
@@ -234,7 +250,10 @@ export function AdminTenantsPage() {
         actions={[
           {
             label: 'Edit',
-            onClick: () => startEdit(actionTenant),
+            onClick: () => {
+              startEdit(actionTenant);
+              setActionTenant(null);
+            },
           },
           {
             label: 'Delete',

@@ -21,8 +21,7 @@ export function AppShell() {
         ['Rooms', '/admin/rooms'],
         ['Tenants', '/admin/tenants'],
         ['Contracts', '/admin/contracts'],
-        ['Invoices', '/admin/invoices'],
-        ['Payments', '/admin/payments'],
+        ['Billing', '/admin/billing'],
         ['Maintenance', '/admin/maintenance'],
         ['Reports', '/admin/reports'],
         ['Audit', '/admin/audit'],
@@ -30,8 +29,7 @@ export function AppShell() {
     : [
         ['Dashboard', '/tenant'],
         ['Contract', '/tenant/contract'],
-        ['Invoices', '/tenant/invoices'],
-        ['Payments', '/tenant/payments'],
+        ['Billing', '/tenant/billing'],
         ['Maintenance', '/tenant/maintenance'],
       ];
   const sectionTitle = isAdmin ? 'Admin Workspace' : 'Tenant Portal';
@@ -57,9 +55,9 @@ export function AppShell() {
     <div className="app-frame">
       <aside className="sidebar">
         <div className="brand-block">
-          <div className="brand-mark">RM</div>
+          <div className="brand-mark">RPM</div>
           <div>
-            <div className="brand">Room Manager</div>
+            <div className="brand">Rental Property Management</div>
             <div className="sidebar-subtitle">{sectionTitle}</div>
           </div>
         </div>

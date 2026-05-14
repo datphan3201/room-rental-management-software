@@ -29,6 +29,76 @@ function readFileAsDataUrl(file) {
   });
 }
 
+function dataUrlToObjectUrl(dataUrl) {
+  const [header, payload] = String(dataUrl || '').split(',');
+  const mime = header.match(/^data:([^;]+);base64$/)?.[1];
+  if (!mime || !payload) {
+    throw new Error('Invalid image data');
+  }
+  const binary = window.atob(payload);
+  const chunks = [];
+  for (let index = 0; index < binary.length; index += 8192) {
+    const slice = binary.slice(index, index + 8192);
+    const bytes = new Uint8Array(slice.length);
+    for (let offset = 0; offset < slice.length; offset += 1) {
+      bytes[offset] = slice.charCodeAt(offset);
+    }
+    chunks.push(bytes);
+  }
+  return window.URL.createObjectURL(new Blob(chunks, { type: mime }));
+}
+
+function ImagePreviewModal({ preview, onClose }) {
+  const [displaySrc, setDisplaySrc] = React.useState('');
+  const [loadError, setLoadError] = React.useState('');
+
+  React.useEffect(() => {
+    setLoadError('');
+    if (!preview?.src) {
+      setDisplaySrc('');
+      return undefined;
+    }
+
+    if (!preview.src.startsWith('data:image/')) {
+      setDisplaySrc(preview.src);
+      return undefined;
+    }
+
+    let objectUrl = '';
+    try {
+      objectUrl = dataUrlToObjectUrl(preview.src);
+      setDisplaySrc(objectUrl);
+    } catch {
+      setDisplaySrc(preview.src);
+    }
+
+    return () => {
+      if (objectUrl) {
+        window.URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [preview]);
+
+  return (
+    <Modal open={Boolean(preview)} title={preview?.title || 'Image'} onClose={onClose}>
+      {preview?.src ? (
+        <div className="image-preview-dialog">
+          {loadError ? <div className="error-box">{loadError}</div> : null}
+          {displaySrc ? (
+            <img
+              className="receipt-preview large"
+              src={displaySrc}
+              alt={preview.title || 'Preview'}
+              onError={() => setLoadError('Cannot display this receipt image. Try uploading a JPG or PNG image.')}
+            />
+          ) : null}
+          {preview.note ? <p className="muted">{preview.note}</p> : null}
+        </div>
+      ) : null}
+    </Modal>
+  );
+}
+
 export function AdminPaymentsPage() {
   const [payments, setPayments] = React.useState([]);
   const [invoices, setInvoices] = React.useState([]);
@@ -38,11 +108,12 @@ export function AdminPaymentsPage() {
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
   const [formOpen, setFormOpen] = React.useState(false);
+  const [imagePreview, setImagePreview] = React.useState(null);
   const [paymentView, setPaymentView] = React.useState('history');
   const listView = useListView(payments, {
     searchFields: ['invoiceId.billingMonth', 'tenantId.fullName', 'method', 'note'],
   });
-  const proofInvoices = invoices.filter((invoice) => invoice.paymentProofImageUrl && invoice.status !== 'Paid');
+  const proofInvoices = invoices.filter((invoice) => invoice.paymentProofImageUrl);
 
   async function loadData() {
     setLoading(true);
@@ -169,7 +240,15 @@ export function AdminPaymentsPage() {
             QR image
             <input type="file" accept="image/*" onChange={handleQrUpload} />
           </label>
-          {settings.qrImageUrl ? <img className="qr-preview" src={settings.qrImageUrl} alt="Payment QR" /> : null}
+          {settings.qrImageUrl ? (
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => setImagePreview({ title: 'Payment QR', src: settings.qrImageUrl })}
+            >
+              View QR
+            </button>
+          ) : null}
           <button className="button" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
         </form>
       </div>
@@ -211,7 +290,17 @@ export function AdminPaymentsPage() {
                       <td>{formatCurrency(payment.amount)}</td>
                       <td>
                         {payment.invoiceId?.paymentProofImageUrl ? (
-                          <a className="inline-link" href={payment.invoiceId.paymentProofImageUrl} target="_blank" rel="noreferrer">View</a>
+                          <button
+                            type="button"
+                            className="text-button dark"
+                            onClick={() => setImagePreview({
+                              title: `Receipt ${payment.invoiceId.billingMonth || ''}`.trim(),
+                              src: payment.invoiceId.paymentProofImageUrl,
+                              note: payment.invoiceId.paymentProofNote,
+                            })}
+                          >
+                            View
+                          </button>
                         ) : '-'}
                       </td>
                     </tr>
@@ -224,6 +313,7 @@ export function AdminPaymentsPage() {
                   <tr>
                     <th>Invoice</th>
                     <th>Tenant</th>
+                    <th>Status</th>
                     <th>Uploaded</th>
                     <th>Amount</th>
                     <th>Receipt</th>
@@ -235,14 +325,29 @@ export function AdminPaymentsPage() {
                     <tr key={invoice._id}>
                       <td>{invoice.billingMonth}</td>
                       <td>{invoice.tenantId?.fullName || '-'}</td>
+                      <td>{invoice.status}</td>
                       <td>{formatDate(invoice.paymentProofUploadedAt)}</td>
                       <td>{formatCurrency(invoice.totalAmount)}</td>
-                      <td><a className="inline-link" href={invoice.paymentProofImageUrl} target="_blank" rel="noreferrer">View</a></td>
+                      <td>
+                        <button
+                          type="button"
+                          className="text-button dark"
+                          onClick={() => setImagePreview({
+                            title: `Receipt ${invoice.billingMonth}`,
+                            src: invoice.paymentProofImageUrl,
+                            note: invoice.paymentProofNote,
+                          })}
+                        >
+                          View
+                        </button>
+                      </td>
                       <td className="row-action-cell">
-                        <button type="button" className="text-button dark" onClick={() => startConfirmInvoice(invoice)}>Confirm</button>
+                        {invoice.status !== 'Paid' && invoice.status !== 'Cancelled' ? (
+                          <button type="button" className="text-button dark" onClick={() => startConfirmInvoice(invoice)}>Confirm</button>
+                        ) : '-'}
                       </td>
                     </tr>
-                  )) : <tr><td colSpan="6" className="muted">No pending proofs.</td></tr>}
+                  )) : <tr><td colSpan="7" className="muted">No payment proofs.</td></tr>}
                 </tbody>
               </table>
             )}
@@ -293,6 +398,7 @@ export function AdminPaymentsPage() {
           </div>
         </form>
       </Modal>
+      <ImagePreviewModal preview={imagePreview} onClose={() => setImagePreview(null)} />
     </section>
   );
 }

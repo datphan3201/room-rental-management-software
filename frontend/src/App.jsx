@@ -7,15 +7,13 @@ import { AdminDashboardPage } from './pages/admin/AdminDashboardPage.jsx';
 import { AdminRoomsPage } from './pages/admin/AdminRoomsPage.jsx';
 import { AdminTenantsPage } from './pages/admin/AdminTenantsPage.jsx';
 import { AdminContractsPage } from './pages/admin/AdminContractsPage.jsx';
-import { AdminInvoicesPage } from './pages/admin/AdminInvoicesPage.jsx';
-import { AdminPaymentsPage } from './pages/admin/AdminPaymentsPage.jsx';
+import { AdminBillingPage } from './pages/admin/AdminBillingPage.jsx';
 import { AdminMaintenancePage } from './pages/admin/AdminMaintenancePage.jsx';
 import { AdminReportsPage } from './pages/admin/AdminReportsPage.jsx';
 import { AdminAuditPage } from './pages/admin/AdminAuditPage.jsx';
 import { TenantDashboardPage } from './pages/tenant/TenantDashboardPage.jsx';
 import { TenantContractPage } from './pages/tenant/TenantContractPage.jsx';
-import { TenantInvoicesPage } from './pages/tenant/TenantInvoicesPage.jsx';
-import { TenantPaymentsPage } from './pages/tenant/TenantPaymentsPage.jsx';
+import { TenantBillingPage } from './pages/tenant/TenantBillingPage.jsx';
 import { TenantMaintenancePage } from './pages/tenant/TenantMaintenancePage.jsx';
 
 function RequireAuth({ children, role }) {
@@ -25,7 +23,7 @@ function RequireAuth({ children, role }) {
       <div className="login-page">
         <section className="login-card">
           <p className="eyebrow">Loading session</p>
-          <h1>Room Rental Management Software</h1>
+          <h1>Rental Property Management</h1>
           <p className="muted">Restoring your authentication state...</p>
         </section>
       </div>
@@ -53,8 +51,9 @@ export default function App() {
           <Route path="rooms" element={<AdminRoomsPage />} />
           <Route path="tenants" element={<AdminTenantsPage />} />
           <Route path="contracts" element={<AdminContractsPage />} />
-          <Route path="invoices" element={<AdminInvoicesPage />} />
-          <Route path="payments" element={<AdminPaymentsPage />} />
+          <Route path="billing" element={<AdminBillingPage />} />
+          <Route path="invoices" element={<AdminBillingPage initialView="invoices" />} />
+          <Route path="payments" element={<AdminBillingPage initialView="payments" />} />
           <Route path="maintenance" element={<AdminMaintenancePage />} />
           <Route path="reports" element={<AdminReportsPage />} />
           <Route path="audit" element={<AdminAuditPage />} />
@@ -69,8 +68,9 @@ export default function App() {
         >
           <Route index element={<TenantDashboardPage />} />
           <Route path="contract" element={<TenantContractPage />} />
-          <Route path="invoices" element={<TenantInvoicesPage />} />
-          <Route path="payments" element={<TenantPaymentsPage />} />
+          <Route path="billing" element={<TenantBillingPage />} />
+          <Route path="invoices" element={<TenantBillingPage initialView="invoices" />} />
+          <Route path="payments" element={<TenantBillingPage initialView="payments" />} />
           <Route path="maintenance" element={<TenantMaintenancePage />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
